@@ -20,7 +20,7 @@ Flutter 短剧平台原型，Android 先行，保留 iOS 平台工程。采用�
 
 当前默认来源为 **红果 → App（快速）**，与参考项目截图一致，支持真人剧、漫剧和 AI 剧目录、题材、搜索与完整分集列表。不再默认使用西饭。
 
-目前是本机联调版：需运行 `scripts/start-hongguo.ps1` 并保持电脑服务开启，通过 adb reverse 连接雷电。App 加密媒体下载、解码和本地缓存未启用，等待明确确认；目录可预览，不将目录成功当成视频已可播放。
+当前远程接口为 `https://api.getagentconsole.space`。Android 远程包通过 `scripts/build-remote-apk.ps1` 构建。iOS 未签名 IPA 通过 GitHub Actions 手动生成，详见 [iOS 试装](docs/ios-testing.md)。云端构建从仓库 Secret 注入测试网关令牌，源码不保存令牌；安装前需使用自己的有效签名身份重签。
 
 网关复用参考项目的红果 App 适配组件，相关源码和 GPL 许可位于 tools/hongguo-gateway/vendor。
 
