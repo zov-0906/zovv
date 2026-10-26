@@ -840,7 +840,7 @@ class _PlayerScreenState extends State<PlayerScreen>
                     ),
                   ),
                 ),
-                if (_nextLabel.isNotEmpty)
+                if (!_loading && _nextLabel.isNotEmpty)
                   Text(
                     _nextLabel,
                     style: TextStyle(

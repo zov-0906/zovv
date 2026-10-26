@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
+
 import 'package:video_player/video_player.dart';
 
 import '../../drama/domain/drama.dart';
@@ -16,7 +18,8 @@ class PreparedEpisode {
   final PlaybackSource source;
   final VideoPlayerController controller;
   bool get usable =>
-      controller.value.isInitialized && !controller.value.hasError &&
+      controller.value.isInitialized &&
+      !controller.value.hasError &&
       (source.expiresAt == null ||
           source.expiresAt!.isAfter(
             DateTime.now().add(const Duration(seconds: 10)),
@@ -58,6 +61,7 @@ class NextEpisodeBuffer {
 
   Future<PreparedEpisode?> _prepare(_Preparation job) async {
     VideoPlayerController? controller;
+    var phase = 'source';
     try {
       final source = await resolve(job.index)
           .timeout(const Duration(seconds: 90));
@@ -70,6 +74,7 @@ class NextEpisodeBuffer {
         throw const PlaybackUnavailable('预加载地址已过期');
       }
       controller = create(source);
+      phase = 'initialize';
       job.controller = controller;
       await controller.initialize().timeout(const Duration(seconds: 25));
       if (_disposed || job.cancelled) {
@@ -77,6 +82,7 @@ class NextEpisodeBuffer {
         return null;
       }
       await controller.setVolume(0);
+      phase = 'seek';
       await controller.seekTo(Duration.zero);
       if (_disposed || job.cancelled) {
         await controller.dispose();
@@ -85,7 +91,13 @@ class NextEpisodeBuffer {
       if (controller.value.hasError) throw StateError('Preload failed');
       if (identical(_job, job)) onChanged(NextEpisodeState.ready);
       return PreparedEpisode(job.index, source, controller);
-    } catch (_) {
+    } catch (error) {
+      assert(() {
+        debugPrint(
+          'ZOVV preload episode=${job.index + 1} phase=$phase error=${error.runtimeType}',
+        );
+        return true;
+      }());
       await controller?.dispose();
       if (!_disposed && !job.cancelled && identical(_job, job)) {
         _job = null;
