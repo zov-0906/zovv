@@ -3,6 +3,20 @@ import 'package:zovv/features/drama/data/hongguo_drama_repository.dart';
 import 'package:zovv/features/drama/domain/drama.dart';
 
 void main() {
+  test(
+    'playback cache expiry is carried through to the phone preloader',
+    () async {
+      final expires = DateTime.now().toUtc().add(const Duration(minutes: 10));
+      final repository = HongguoDramaRepository(
+        transport: (_, _) async => {
+          'url': 'https://example.com/video.mp4',
+          'expiresAt': expires.toIso8601String(),
+        },
+      );
+      final result = await repository.resolveEpisode('hongguo:123', '456');
+      expect(result.expiresAt, expires);
+    },
+  );
   const detailSummary = Drama(
     id: 'hongguo:7698294694886788121',
     title: '测试',

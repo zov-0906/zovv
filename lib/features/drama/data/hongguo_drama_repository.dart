@@ -308,6 +308,7 @@ class HongguoDramaRepository
       uri: uri,
       headers: headers,
       attribution: '${result['attribution'] ?? '片源：红果'}',
+      expiresAt: DateTime.tryParse('${result['expiresAt'] ?? ''}'),
     );
   }
 

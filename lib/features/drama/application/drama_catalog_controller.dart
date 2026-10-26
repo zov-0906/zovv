@@ -29,9 +29,10 @@ class DramaCatalogController extends ChangeNotifier {
       dramas = List.unmodifiable(_unique(first.dramas));
       hasMore = first.hasMore;
       page = first.page;
-    } catch (_) {
+    } catch (failure) {
       if (_disposed || request != _request) return;
-      error = '暂时无法加载剧目，请重试';
+      error = failure is PlaybackUnavailable
+          ? failure.message : '暂时无法加载剧目，请重试';
     }
     if (!_disposed && request == _request) {
       loading = false;

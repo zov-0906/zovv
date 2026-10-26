@@ -186,7 +186,7 @@ void main() {
     await tester.tap(find.byKey(const Key('resume-evening')));
     await tester.pumpAndSettle();
     expect(find.byType(PlayerScreen), findsOneWidget);
-    expect(find.text('第 2 集 · 演示'), findsOneWidget);
+    expect(find.text('第 2 集'), findsOneWidget);
     expect(find.text('本站占位：暂不播放'), findsOneWidget);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
@@ -222,7 +222,7 @@ void main() {
     repository.pending.complete(remoteDetails());
     await tester.pumpAndSettle();
     expect(find.byType(PlayerScreen), findsOneWidget);
-    expect(find.text('第 5 集 · 红果'), findsOneWidget);
+    expect(find.text('第 5 集'), findsOneWidget);
     expect(find.text('本站占位：暂不播放'), findsOneWidget);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());

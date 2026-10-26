@@ -33,6 +33,44 @@ class OfflineRepository implements DramaRepository {
 }
 
 void main() {
+  testWidgets(
+    'compact player moves autoplay into more settings and remembers its in-page selection',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(320, 568));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final library = DramaLibraryController(MemoryLibraryStorage());
+      await library.load();
+      addTearDown(library.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(context)
+                .copyWith(textScaler: const TextScaler.linear(1.5)),
+            child: child!,
+          ),
+          home: PlayerScreen(
+            drama: DemoDramaRepository.catalog.first,
+            repository: OfflineRepository(),
+            library: library,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(Switch), findsNothing);
+      expect(find.textContaining('选集 · 共'), findsOneWidget);
+      await tester.tap(find.byTooltip('更多播放设置'));
+      await tester.pumpAndSettle();
+      expect(find.text('播放设置'), findsOneWidget);
+      expect(find.byType(Switch), findsOneWidget);
+      await tester.tap(find.byType(Switch));
+      await tester.pumpAndSettle();
+      expect(tester.widget<Switch>(find.byType(Switch)).value, isFalse);
+      Navigator.of(tester.element(find.text('播放设置'))).pop();
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
   testWidgets('leaving before source resolution ignores the stale result', (
     tester,
   ) async {

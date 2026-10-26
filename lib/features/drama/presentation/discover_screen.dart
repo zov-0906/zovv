@@ -172,7 +172,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
             _FeedNotice(
               icon: Icons.cloud_off_rounded,
               title: widget.catalogError!,
-              hint: '确认电脑端调试服务在运行后再试一次',
+              hint: '请检查网络连接，稍后重试',
               action: '重试',
               onAction: widget.onRetry,
             )

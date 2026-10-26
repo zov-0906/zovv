@@ -489,7 +489,7 @@ class _AboutSheet extends StatelessWidget {
                     ),
                     const SizedBox(height: 20),
                     Text(
-                      '当前来源为红果，使用 App（快速）目录。真人剧、漫剧与 AI 剧可切换。本机调试服务提供目录和分集，播放范围由来源平台决定。',
+                      '当前来源为红果，使用 App（快速）目录。真人剧、漫剧与 AI 剧可切换。内容由远程服务提供，播放范围由来源平台决定。',
                       style: TextStyle(
                         fontSize: 11.5,
                         height: 1.8,

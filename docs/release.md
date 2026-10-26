@@ -20,6 +20,14 @@ flutter build apk --release `
 
 ## 本次部署记录（已上线）
 
+当前生产入口迁至 **50.114.172.67**（Ubuntu 22.04、4 核 4G），域名仍为 `https://api.getagentconsole.space`，App 地址和网关令牌沿用，无需因这次迁移重签 IPA。原 140.143.201.224 暂留作回退。
+
+新服务器 Node 22.22.1 位于 `/opt/zovv-runtime/node/bin/node`，网关位于 `/opt/zovv-gateway`，systemd 使用非 root 用户 `zovv` 运行，内存上限 1500 MiB，监听 127.0.0.1:8765。Caddy 官方发布版 2.10.2 安装于 `/usr/local/bin/caddy`，HTTPS 证书由 Certbot DNS 验证签发并自动续期。
+
+原 `indieops-web-1`、`indieops-api-1`、`indieops-forgejo-1`、`indieops-mysql-1` 均停止并取消自动重启，Nginx、Xray 停用；容器和数据未删除。原始配置及容器状态备份在 `/root/zovv-before-*`，路径记录在 `/root/zovv-deploy/backup-path`。部署文件和日志在 `/root/zovv-deploy`，仅 root 可读。SSH 保留。新服务器维护入口为 `tools/migrate-gateway.py`，旧 `tools/gateway-admin.py` 仍明确指向旧服务器。
+
+下列为旧服务器部署记录，供回退参考：
+
 - 服务器：`140.143.201.224`（Ubuntu 26.04，2 核 2G，4Mbps），Node.js 22 + ffmpeg 8。
 - 网关：`/opt/zovv-gateway`，systemd 服务 `zovv-gateway`，监听 `127.0.0.1:8765`。
 - 反向代理：Caddy，App 接口为 `https://api.getagentconsole.space`（443 端口）；域名 HTTP 跳转 HTTPS。
