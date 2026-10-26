@@ -56,7 +56,17 @@ class _DramaShellState extends State<DramaShell> {
     _catalog = DramaCatalogController(
       widget.repository ??
           (_demoSource ? DemoDramaRepository() : HongguoDramaRepository()),
-    )..load();
+      cache: widget.repository == null && !_demoSource
+          ? LocalCatalogStorage()
+          : null,
+      cacheKey: () {
+        final source = _catalog.repository;
+        return source is HongguoDramaRepository
+            ? 'hongguo:${source.contentType}:${source.genre}'
+            : 'demo';
+      },
+    );
+    _catalog.load();
     _library = DramaLibraryController(widget.storage ?? LocalLibraryStorage())
       ..load();
   }
@@ -299,6 +309,7 @@ class _DramaShellState extends State<DramaShell> {
                                     loading: _catalog.loading,
                                     catalogError: _catalog.error,
                                     onRetry: _catalog.load,
+                                    onRefresh: _catalog.load,
                                     onLoadMore: _catalog.loadMore,
                                     hasMore: _catalog.hasMore,
                                     loadingMore: _catalog.loadingMore,

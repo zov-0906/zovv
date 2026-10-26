@@ -27,6 +27,7 @@ class DiscoverScreen extends StatefulWidget {
     this.loading = false,
     this.catalogError,
     this.onRetry,
+    this.onRefresh,
     this.onLoadMore,
     this.hasMore = false,
     this.loadingMore = false,
@@ -48,6 +49,7 @@ class DiscoverScreen extends StatefulWidget {
   final bool loading;
   final String? catalogError;
   final VoidCallback? onRetry;
+  final Future<void> Function()? onRefresh;
 
   /// Infinite feed: fired when the scroll position approaches the end.
   final VoidCallback? onLoadMore;
@@ -89,256 +91,275 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
               drama.category == _category,
         )
         .toList();
-    return SingleChildScrollView(
-      key: const PageStorageKey('discover'),
-      controller: _scroll,
-      padding: const EdgeInsets.fromLTRB(22, 12, 22, 125),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '好故事，慢慢看。',
-                      style: TextStyle(
-                        fontSize: 27,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: -.8,
-                        color: palette.ink,
+    return RefreshIndicator.adaptive(
+      onRefresh: widget.onRefresh ?? () async {},
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(
+          parent: BouncingScrollPhysics(),
+        ),
+        key: const PageStorageKey('discover'),
+        controller: _scroll,
+        padding: const EdgeInsets.fromLTRB(22, 12, 22, 125),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '好故事，慢慢看。',
+                        style: TextStyle(
+                          fontSize: 27,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: -.8,
+                          color: palette.ink,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 7),
-                    Text(
-                      '把片刻，留给喜欢的故事',
-                      style: TextStyle(fontSize: 12, color: palette.muted),
-                    ),
-                  ],
+                      const SizedBox(height: 7),
+                      Text(
+                        '把片刻，留给喜欢的故事',
+                        style: TextStyle(fontSize: 12, color: palette.muted),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              IconButton(
-                tooltip: '搜索短剧',
-                color: palette.ink,
-                onPressed: widget.onSearch,
-                icon: const Icon(Icons.search_rounded),
-              ),
-            ],
-          ),
-          const SizedBox(height: 21),
-          if (widget.sourceControls != null) ...[
-            widget.sourceControls!,
-            const SizedBox(height: 18),
-          ],
-          SizedBox(
-            height: 38,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: categories.length,
-              separatorBuilder: (_, _) => const SizedBox(width: 8),
-              itemBuilder: (context, index) {
-                final category = categories[index];
-                final active = remoteGenres != null
-                    ? (index == 0
-                          ? widget.selectedGenre.isEmpty
-                          : remoteGenres.keys.elementAt(index - 1) ==
-                                widget.selectedGenre)
-                    : _category == category;
-                return GlassChip(
-                  label: category,
-                  selected: active,
-                  onTap: () {
-                    if (remoteGenres != null) {
-                      widget.onGenre?.call(
-                        index == 0
-                            ? ''
-                            : remoteGenres.keys.elementAt(index - 1),
-                      );
-                    } else {
-                      setState(() => _category = category);
-                    }
-                  },
-                );
-              },
+                IconButton(
+                  tooltip: '搜索短剧',
+                  color: palette.ink,
+                  onPressed: widget.onSearch,
+                  icon: const Icon(Icons.search_rounded),
+                ),
+              ],
             ),
-          ),
-          const SizedBox(height: 22),
-          if (widget.loading)
-            const DramaDiscoverSkeleton()
-          else if (widget.catalogError != null)
-            _FeedNotice(
-              icon: Icons.cloud_off_rounded,
-              title: widget.catalogError!,
-              hint: '请检查网络连接，稍后重试',
-              action: '重试',
-              onAction: widget.onRetry,
-            )
-          else if (widget.dramas.isEmpty)
-            const _FeedNotice(
-              icon: Icons.movie_filter_outlined,
-              title: '还没有上架的故事',
-              hint: '换个题材，或者稍后再来看看',
-            )
-          else ...[
-            if (widget.resumeEntries.isNotEmpty && widget.onResume != null) ...[
-              ContinueWatchingRail(
-                entries: widget.resumeEntries,
-                busyId: widget.busyId,
-                onResume: widget.onResume!,
-              ),
-              const SizedBox(height: 24),
+            const SizedBox(height: 21),
+            if (widget.sourceControls != null) ...[
+              widget.sourceControls!,
+              const SizedBox(height: 18),
             ],
-            // Poster carries the artwork; text lives outside it so source covers
-            // that already print a title never collide with ours.
             SizedBox(
-              height: 300,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(27),
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    DramaPoster(drama: selected.first, showTitle: false),
-                    Positioned(
-                      top: 15,
-                      left: 15,
-                      child: GlassSurface(
-                        dark: true,
-                        radius: 12,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 6,
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(
-                              Icons.auto_awesome,
-                              size: 11,
-                              color: Colors.white,
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              '今日精选 · ${selected.first.sourceName}',
-                              style: const TextStyle(
-                                fontSize: 9.5,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              selected.first.title,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 23,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 1.2,
-                height: 1.3,
-                color: palette.ink,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              selected.first.subtitle,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontSize: 12, height: 1.6, color: palette.muted),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Flexible(
-                  child: Text(
-                    '${selected.first.category} · ${selected.first.episodeLabel}',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 10.5,
-                      letterSpacing: .4,
-                      color: palette.muted,
-                    ),
-                  ),
-                ),
-                const Spacer(),
-                FilledButton.icon(
-                  key: const Key('discover-hero-play'),
-                  onPressed: () => widget.onOpen(selected.first),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: palette.ink,
-                    foregroundColor: palette.canvas,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 17,
-                      vertical: 11,
-                    ),
-                  ),
-                  icon: const Icon(Icons.play_arrow_rounded, size: 19),
-                  label: const Text('看看这部', style: TextStyle(fontSize: 12)),
-                ),
-              ],
-            ),
-            const SizedBox(height: 30),
-            Row(
-              children: [
-                Text(
-                  _category == '精选' ? '值得停留' : '$_category故事',
-                  style: TextStyle(
-                    fontSize: 19,
-                    fontWeight: FontWeight.w600,
-                    color: palette.ink,
-                  ),
-                ),
-                const Spacer(),
-                Text(
-                  '为你精选',
-                  style: TextStyle(fontSize: 11, color: palette.muted),
-                ),
-              ],
-            ),
-            const SizedBox(height: 15),
-            GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: selected.length,
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                crossAxisSpacing: 14,
-                mainAxisSpacing: 22,
-                childAspectRatio: .61,
-              ),
-              itemBuilder: (context, index) => DramaCard(
-                drama: selected[index],
-                onTap: () => widget.onOpen(selected[index]),
+              height: 38,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: categories.length,
+                separatorBuilder: (_, _) => const SizedBox(width: 8),
+                itemBuilder: (context, index) {
+                  final category = categories[index];
+                  final active = remoteGenres != null
+                      ? (index == 0
+                            ? widget.selectedGenre.isEmpty
+                            : remoteGenres.keys.elementAt(index - 1) ==
+                                  widget.selectedGenre)
+                      : _category == category;
+                  return GlassChip(
+                    label: category,
+                    selected: active,
+                    onTap: () {
+                      if (remoteGenres != null) {
+                        widget.onGenre?.call(
+                          index == 0
+                              ? ''
+                              : remoteGenres.keys.elementAt(index - 1),
+                        );
+                      } else {
+                        setState(() => _category = category);
+                      }
+                    },
+                  );
+                },
               ),
             ),
             const SizedBox(height: 22),
-            _FeedFooter(
-              loadingMore: widget.loadingMore,
-              error: widget.moreError,
-              hasMore: widget.hasMore,
-              onRetry: widget.onLoadMore,
-            ),
-            const SizedBox(height: 8),
-            Center(
-              child: Text(
-                widget.dramas.first.isDemo
-                    ? '演示片单 · 开源短片体验'
-                    : '片源：红果 · 已加载 ${widget.dramas.length} 部',
-                style: TextStyle(fontSize: 10, color: palette.muted),
+            if (widget.catalogError != null && widget.dramas.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 14),
+                child: Text(
+                  '更新失败，当前显示已加载内容。下拉可重试。',
+                  style: TextStyle(color: palette.muted, fontSize: 12),
+                ),
               ),
-            ),
+            if (widget.loading && widget.dramas.isEmpty)
+              const DramaDiscoverSkeleton()
+            else if (widget.catalogError != null && widget.dramas.isEmpty)
+              _FeedNotice(
+                icon: Icons.cloud_off_rounded,
+                title: widget.catalogError!,
+                hint: '请检查网络连接，稍后重试',
+                action: '重试',
+                onAction: widget.onRetry,
+              )
+            else if (widget.dramas.isEmpty)
+              const _FeedNotice(
+                icon: Icons.movie_filter_outlined,
+                title: '还没有上架的故事',
+                hint: '换个题材，或者稍后再来看看',
+              )
+            else ...[
+              if (widget.resumeEntries.isNotEmpty &&
+                  widget.onResume != null) ...[
+                ContinueWatchingRail(
+                  entries: widget.resumeEntries,
+                  busyId: widget.busyId,
+                  onResume: widget.onResume!,
+                ),
+                const SizedBox(height: 24),
+              ],
+              // Poster carries the artwork; text lives outside it so source covers
+              // that already print a title never collide with ours.
+              SizedBox(
+                height: 300,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(27),
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      DramaPoster(drama: selected.first, showTitle: false),
+                      Positioned(
+                        top: 15,
+                        left: 15,
+                        child: GlassSurface(
+                          dark: true,
+                          radius: 12,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 6,
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.auto_awesome,
+                                size: 11,
+                                color: Colors.white,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                '今日精选 · ${selected.first.sourceName}',
+                                style: const TextStyle(
+                                  fontSize: 9.5,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                selected.first.title,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 23,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 1.2,
+                  height: 1.3,
+                  color: palette.ink,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                selected.first.subtitle,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 12,
+                  height: 1.6,
+                  color: palette.muted,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Flexible(
+                    child: Text(
+                      '${selected.first.category} · ${selected.first.episodeLabel}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        letterSpacing: .4,
+                        color: palette.muted,
+                      ),
+                    ),
+                  ),
+                  const Spacer(),
+                  FilledButton.icon(
+                    key: const Key('discover-hero-play'),
+                    onPressed: () => widget.onOpen(selected.first),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: palette.ink,
+                      foregroundColor: palette.canvas,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 17,
+                        vertical: 11,
+                      ),
+                    ),
+                    icon: const Icon(Icons.play_arrow_rounded, size: 19),
+                    label: const Text('看看这部', style: TextStyle(fontSize: 12)),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 30),
+              Row(
+                children: [
+                  Text(
+                    _category == '精选' ? '值得停留' : '$_category故事',
+                    style: TextStyle(
+                      fontSize: 19,
+                      fontWeight: FontWeight.w600,
+                      color: palette.ink,
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    '为你精选',
+                    style: TextStyle(fontSize: 11, color: palette.muted),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 15),
+              GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: selected.length,
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 14,
+                  mainAxisSpacing: 22,
+                  childAspectRatio: .61,
+                ),
+                itemBuilder: (context, index) => DramaCard(
+                  drama: selected[index],
+                  onTap: () => widget.onOpen(selected[index]),
+                ),
+              ),
+              const SizedBox(height: 22),
+              _FeedFooter(
+                loadingMore: widget.loadingMore,
+                error: widget.moreError,
+                hasMore: widget.hasMore,
+                onRetry: widget.onLoadMore,
+              ),
+              const SizedBox(height: 8),
+              Center(
+                child: Text(
+                  widget.dramas.first.isDemo
+                      ? '演示片单 · 开源短片体验'
+                      : '片源：红果 · 已加载 ${widget.dramas.length} 部',
+                  style: TextStyle(fontSize: 10, color: palette.muted),
+                ),
+              ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }

@@ -3,16 +3,16 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import 'glass_surface.dart';
 
-/// Floating sheet frame shared by secondary flows, including their error states.
+/// Docked glass sheet; only content is inset for the home indicator.
 class GlassSheet extends StatelessWidget {
   const GlassSheet({super.key, required this.child});
   final Widget child;
 
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+  Widget build(BuildContext context) => ClipRRect(
+    borderRadius: const BorderRadius.vertical(top: Radius.circular(26)),
     child: GlassSurface(
-      radius: 26,
+      radius: 0,
       child: SafeArea(
         top: false,
         child: Column(

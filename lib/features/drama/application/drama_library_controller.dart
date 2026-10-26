@@ -57,6 +57,11 @@ class DramaLibraryController extends ChangeNotifier {
       if (_known[progress.dramaId] case final drama?)
         ResumeEntry(drama: drama, progress: progress),
   ];
+  Future<void> refresh() async {
+    await _writes;
+    if (!_disposed) await load();
+  }
+
   Future<void> load() async {
     try {
       final raw = await storage.read();

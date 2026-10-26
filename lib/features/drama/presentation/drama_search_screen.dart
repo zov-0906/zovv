@@ -124,127 +124,137 @@ class _DramaSearchScreenState extends State<DramaSearchScreen> {
                         .contains(query),
               )
               .toList();
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(22, 12, 22, 125),
-      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            '找一个好故事',
-            style: TextStyle(
-              fontSize: 27,
-              fontWeight: FontWeight.w600,
-              color: palette.ink,
+    return RefreshIndicator.adaptive(
+      onRefresh: _search,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(
+          parent: BouncingScrollPhysics(),
+        ),
+        padding: const EdgeInsets.fromLTRB(22, 12, 22, 125),
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '找一个好故事',
+              style: TextStyle(
+                fontSize: 27,
+                fontWeight: FontWeight.w600,
+                color: palette.ink,
+              ),
             ),
-          ),
-          const SizedBox(height: 22),
-          GlassSurface(
-            radius: 14,
-            child: TextField(
-              key: const Key('drama-search'),
-              controller: _text,
-              onChanged: _changed,
-              textInputAction: TextInputAction.search,
-              onSubmitted: (_) {
-                FocusScope.of(context).unfocus();
-                _search();
-              },
-              style: TextStyle(fontSize: 14, color: palette.ink),
-              decoration: InputDecoration(
-                hintText: '搜索剧名、题材',
-                hintStyle: TextStyle(color: palette.muted, fontSize: 14),
-                prefixIcon: Icon(
-                  Icons.search_rounded,
-                  size: 22,
+            const SizedBox(height: 22),
+            GlassSurface(
+              radius: 14,
+              child: TextField(
+                key: const Key('drama-search'),
+                controller: _text,
+                onChanged: _changed,
+                textInputAction: TextInputAction.search,
+                onSubmitted: (_) {
+                  FocusScope.of(context).unfocus();
+                  _search();
+                },
+                style: TextStyle(fontSize: 14, color: palette.ink),
+                decoration: InputDecoration(
+                  hintText: '搜索剧名、题材',
+                  hintStyle: TextStyle(color: palette.muted, fontSize: 14),
+                  prefixIcon: Icon(
+                    Icons.search_rounded,
+                    size: 22,
+                    color: palette.muted,
+                  ),
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 16),
+                  suffixIcon: _query.isEmpty
+                      ? null
+                      : IconButton(
+                          tooltip: '清空搜索',
+                          color: palette.muted,
+                          onPressed: () {
+                            _text.clear();
+                            _changed('');
+                          },
+                          icon: const Icon(Icons.close_rounded, size: 18),
+                        ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 26),
+            Text(
+              _loading
+                  ? '正在寻找…'
+                  : query.isEmpty
+                  ? '随心探索'
+                  : '找到 ${results.length} 个故事',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: palette.ink,
+              ),
+            ),
+            if (!_loading && _notice != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                _notice!,
+                style: TextStyle(
+                  fontSize: 11,
+                  height: 1.5,
                   color: palette.muted,
                 ),
-                border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(vertical: 16),
-                suffixIcon: _query.isEmpty
-                    ? null
-                    : IconButton(
-                        tooltip: '清空搜索',
-                        color: palette.muted,
-                        onPressed: () {
-                          _text.clear();
-                          _changed('');
-                        },
-                        icon: const Icon(Icons.close_rounded, size: 18),
-                      ),
               ),
-            ),
-          ),
-          const SizedBox(height: 26),
-          Text(
-            _loading
-                ? '正在寻找…'
-                : query.isEmpty
-                ? '随心探索'
-                : '找到 ${results.length} 个故事',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: palette.ink,
-            ),
-          ),
-          if (!_loading && _notice != null) ...[
-            const SizedBox(height: 8),
-            Text(
-              _notice!,
-              style: TextStyle(fontSize: 11, height: 1.5, color: palette.muted),
-            ),
-          ],
-          const SizedBox(height: 16),
-          if (_loading)
-            const DramaGridSkeleton(rows: 2)
-          else if (_error != null)
-            Center(
-              child: Column(
-                children: [
-                  Text(_error!, style: TextStyle(color: palette.ink)),
-                  TextButton(onPressed: _search, child: const Text('重试')),
-                ],
-              ),
-            )
-          else if (results.isEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: 75),
-              child: Center(
+            ],
+            const SizedBox(height: 16),
+            if (_loading)
+              const DramaGridSkeleton(rows: 2)
+            else if (_error != null)
+              Center(
                 child: Column(
                   children: [
-                    Icon(
-                      Icons.search_off_rounded,
-                      size: 38,
-                      color: palette.muted,
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      '还没有找到这个故事',
-                      style: TextStyle(fontSize: 16, color: palette.ink),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      '换个剧名或题材试试',
-                      style: TextStyle(color: palette.muted, fontSize: 12),
-                    ),
+                    Text(_error!, style: TextStyle(color: palette.ink)),
+                    TextButton(onPressed: _search, child: const Text('重试')),
                   ],
                 ),
-              ),
-            )
-          else
-            Column(
-              children: [
-                for (final drama in results) ...[
-                  _SearchResultTile(
-                    drama: drama,
-                    onTap: () => widget.onOpen(drama),
+              )
+            else if (results.isEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 75),
+                child: Center(
+                  child: Column(
+                    children: [
+                      Icon(
+                        Icons.search_off_rounded,
+                        size: 38,
+                        color: palette.muted,
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        '还没有找到这个故事',
+                        style: TextStyle(fontSize: 16, color: palette.ink),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '换个剧名或题材试试',
+                        style: TextStyle(color: palette.muted, fontSize: 12),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 12),
+                ),
+              )
+            else
+              Column(
+                children: [
+                  for (final drama in results) ...[
+                    _SearchResultTile(
+                      drama: drama,
+                      onTap: () => widget.onOpen(drama),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
                 ],
-              ],
-            ),
-        ],
+              ),
+          ],
+        ),
       ),
     );
   }

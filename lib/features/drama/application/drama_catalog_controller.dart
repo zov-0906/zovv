@@ -1,9 +1,15 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 
 import '../domain/drama.dart';
+import '../domain/watch_progress.dart';
 
 class DramaCatalogController extends ChangeNotifier {
-  DramaCatalogController(this.repository);
+  DramaCatalogController(this.repository, {this.cache, this.cacheKey});
+  final LibraryStorage? cache;
+  final String Function()? cacheKey;
+  String? _loadedKey;
   final DramaRepository repository;
   List<Drama> dramas = const [];
   bool loading = true;
@@ -16,6 +22,9 @@ class DramaCatalogController extends ChangeNotifier {
   int _request = 0;
   Future<void> load() async {
     final request = ++_request;
+    final key = cacheKey?.call() ?? 'default';
+    if (_loadedKey != null && _loadedKey != key) dramas = const [];
+    _loadedKey = key;
     loading = true;
     error = null;
     moreError = null;
@@ -24,15 +33,43 @@ class DramaCatalogController extends ChangeNotifier {
     page = 1;
     notifyListeners();
     try {
+      if (dramas.isEmpty && cache != null) {
+        try {
+          final raw = await cache!.read();
+          if (_disposed || request != _request) return;
+          final value = raw == null ? null : jsonDecode(raw);
+          if (value is Map && value['key'] == key && value['dramas'] is List) {
+            dramas = List.unmodifiable(
+              (value['dramas'] as List)
+                  .map(Drama.fromSummaryJson)
+                  .whereType<Drama>(),
+            );
+            notifyListeners();
+          }
+        } catch (_) {
+          /* A corrupt snapshot must never block the network. */
+        }
+      }
       final first = await _fetch(1);
       if (_disposed || request != _request) return;
       dramas = List.unmodifiable(_unique(first.dramas));
       hasMore = first.hasMore;
       page = first.page;
+      if (cache != null) {
+        try {
+          await cache!.write(
+            jsonEncode({
+              'key': key,
+              'dramas': first.dramas.map((d) => d.toSummaryJson()).toList(),
+            }),
+          );
+        } catch (_) {
+          /* Playback and browsing do not depend on disk writes. */
+        }
+      }
     } catch (failure) {
       if (_disposed || request != _request) return;
-      error = failure is PlaybackUnavailable
-          ? failure.message : '暂时无法加载剧目，请重试';
+      error = failure is PlaybackUnavailable ? failure.message : '暂时无法加载剧目，请重试';
     }
     if (!_disposed && request == _request) {
       loading = false;

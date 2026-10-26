@@ -6,7 +6,6 @@ import 'package:video_player/video_player.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/glass_surface.dart';
-import '../../../core/widgets/glass_button.dart';
 import '../../../core/widgets/glass_sheet.dart';
 import '../../../core/widgets/playback_scrubber.dart';
 import '../../../core/widgets/zovv_loader.dart';
@@ -15,6 +14,7 @@ import '../../drama/domain/drama.dart';
 import '../../drama/domain/episode_extras.dart';
 import '../../drama/domain/watch_progress.dart';
 import '../application/next_episode_buffer.dart';
+import 'widgets/episode_picker.dart';
 import '../../drama/presentation/widgets/drama_comment_sheet.dart';
 
 class PlayerScreen extends StatefulWidget {
@@ -24,11 +24,13 @@ class PlayerScreen extends StatefulWidget {
     required this.repository,
     required this.library,
     this.initialEpisode = 0,
+    this.createPlayer,
   });
   final Drama drama;
   final DramaRepository repository;
   final DramaLibraryController library;
   final int initialEpisode;
+  final VideoPlayerController Function(PlaybackSource)? createPlayer;
   @override
   State<PlayerScreen> createState() => _PlayerScreenState();
 }
@@ -53,6 +55,12 @@ class _PlayerScreenState extends State<PlayerScreen>
   Timer? _prefetchTimer;
   Timer? _hideTimer;
   bool _controlsVisible = true;
+  bool _userPaused = false;
+  bool _switching = false;
+  bool _dragging = false;
+  double _drag = 0;
+  double _pageHeight = 1;
+  final _videoKey = GlobalKey();
   bool _descriptionExpanded = false;
   bool _resumeAfterSeek = false;
   bool _foreground = true;
@@ -72,16 +80,17 @@ class _PlayerScreenState extends State<PlayerScreen>
         widget.drama.id,
         widget.drama.episodes[index].id,
       ),
-      create: (source) => VideoPlayerController.networkUrl(
-        source.uri,
-        httpHeaders: source.headers,
-      ),
+      create: _createPlayer,
       onChanged: (state) {
         if (mounted) setState(() => _nextState = state);
       },
     );
     unawaited(_load(_episode, resume: true));
   }
+
+  VideoPlayerController _createPlayer(PlaybackSource source) =>
+      widget.createPlayer?.call(source) ??
+      VideoPlayerController.networkUrl(source.uri, httpHeaders: source.headers);
 
   bool _current(int generation) => mounted && generation == _generation;
   void _reportTiming(String phase) {
@@ -93,7 +102,11 @@ class _PlayerScreenState extends State<PlayerScreen>
     }());
   }
 
-  Future<void> _load(int index, {bool resume = false}) async {
+  Future<void> _load(
+    int index, {
+    bool resume = false,
+    bool automatic = false,
+  }) async {
     if (index < 0 || index >= widget.drama.episodes.length) return;
     if (widget.drama.episodes[index].locked) return;
     final generation = ++_generation;
@@ -116,7 +129,8 @@ class _PlayerScreenState extends State<PlayerScreen>
       _source = null;
       _lastSaved = -1;
       _advancing = false;
-      _controlsVisible = true;
+      _controlsVisible = !automatic;
+      _userPaused = false;
       _attemptedNext = null;
       _retriedNext = false;
       _loadingMessage = '正在连接故事…';
@@ -153,10 +167,7 @@ class _PlayerScreenState extends State<PlayerScreen>
           throw const PlaybackUnavailable('播放地址已过期，请重新连接');
         }
         setState(() => _loadingMessage = '正在缓冲画面…');
-        candidate = VideoPlayerController.networkUrl(
-          source.uri,
-          httpHeaders: source.headers,
-        );
+        candidate = _createPlayer(source);
         _opening = candidate;
         await candidate.initialize().timeout(const Duration(seconds: 25));
         _reportTiming('player-initialized');
@@ -239,7 +250,7 @@ class _PlayerScreenState extends State<PlayerScreen>
         _episode + 1 < widget.drama.episodes.length &&
         !widget.drama.episodes[_episode + 1].locked) {
       _advancing = true;
-      unawaited(_load(_episode + 1));
+      unawaited(_load(_episode + 1, automatic: true));
     }
   }
 
@@ -320,9 +331,11 @@ class _PlayerScreenState extends State<PlayerScreen>
     final player = _player;
     if (player == null) return;
     if (player.value.isPlaying) {
+      _userPaused = true;
       player.pause();
       _save();
     } else {
+      _userPaused = false;
       player.play();
     }
     setState(() => _controlsVisible = true);
@@ -367,32 +380,12 @@ class _PlayerScreenState extends State<PlayerScreen>
                 const SizedBox(height: 14),
                 SizedBox(
                   height: MediaQuery.sizeOf(context).height * .5,
-                  child: GridView.builder(
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 5,
-                          crossAxisSpacing: 8,
-                          mainAxisSpacing: 8,
-                          childAspectRatio: 1.55,
-                        ),
-                    itemCount: widget.drama.episodes.length,
-                    itemBuilder: (context, index) {
-                      final episode = widget.drama.episodes[index];
-                      final current = _episode == index;
-                      return GlassButton(
-                        compact: true,
-                        label: '${episode.number}',
-                        selected: current,
-                        icon: episode.locked
-                            ? Icons.lock_outline_rounded
-                            : null,
-                        onPressed: episode.locked
-                            ? null
-                            : () {
-                                Navigator.pop(context);
-                                unawaited(_load(index));
-                              },
-                      );
+                  child: EpisodePicker(
+                    episodes: widget.drama.episodes,
+                    current: _episode,
+                    onSelected: (index) {
+                      Navigator.pop(context);
+                      unawaited(_load(index));
                     },
                   ),
                 ),
@@ -416,7 +409,13 @@ class _PlayerScreenState extends State<PlayerScreen>
           ? [DeviceOrientation.landscapeLeft, DeviceOrientation.landscapeRight]
           : [DeviceOrientation.portraitUp],
     );
-    if (mounted) setState(() {});
+    await SystemChrome.setEnabledSystemUIMode(
+      _landscape ? SystemUiMode.immersiveSticky : SystemUiMode.edgeToEdge,
+    );
+    if (mounted) {
+      setState(() => _controlsVisible = false);
+      _armControls();
+    }
   }
 
   @override
@@ -455,6 +454,7 @@ class _PlayerScreenState extends State<PlayerScreen>
     unawaited(
       SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]),
     );
+    unawaited(SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge));
     super.dispose();
   }
 
@@ -701,7 +701,7 @@ class _PlayerScreenState extends State<PlayerScreen>
       child: ValueListenableBuilder<VideoPlayerValue>(
         valueListenable: player,
         builder: (context, value, _) {
-          final visible = _controlsVisible || !value.isPlaying;
+          final visible = _controlsVisible || _userPaused;
           return Stack(
             alignment: Alignment.center,
             children: [
@@ -987,6 +987,47 @@ class _PlayerScreenState extends State<PlayerScreen>
     ),
   );
 
+  Widget _chrome(Widget child) => IgnorePointer(
+    ignoring: !_controlsVisible && !_userPaused,
+    child: AnimatedOpacity(
+      opacity: _controlsVisible || _userPaused ? 1 : 0,
+      duration: const Duration(milliseconds: 180),
+      child: child,
+    ),
+  );
+
+  Future<void> _finishDrag(double velocity) async {
+    if (_switching || _loading || _sheetOpen) return;
+    _dragging = false;
+    final direction = _drag.abs() > _pageHeight * .18
+        ? (_drag < 0 ? 1 : -1)
+        : velocity.abs() > 500
+        ? (velocity < 0 ? 1 : -1)
+        : 0;
+    final target = _episode + direction;
+    if (direction == 0 ||
+        target < 0 ||
+        target >= widget.drama.episodes.length ||
+        widget.drama.episodes[target].locked) {
+      setState(() => _drag = 0);
+      _armControls();
+      return;
+    }
+    _switching = true;
+    final reduced = MediaQuery.disableAnimationsOf(context);
+    setState(() => _drag = -direction * _pageHeight);
+    if (!reduced) await Future<void>.delayed(const Duration(milliseconds: 220));
+    if (!mounted) return;
+    // Enter from the corresponding edge without creating a third video player.
+    setState(() => _drag = direction * _pageHeight);
+    final loading = _load(target, automatic: true);
+    await WidgetsBinding.instance.endOfFrame;
+    if (!mounted) return;
+    setState(() => _drag = 0);
+    await loading;
+    _switching = false;
+  }
+
   @override
   Widget build(BuildContext context) => AnnotatedRegion<SystemUiOverlayStyle>(
     value: const SystemUiOverlayStyle(
@@ -1001,42 +1042,99 @@ class _PlayerScreenState extends State<PlayerScreen>
         child: LayoutBuilder(
           builder: (context, constraints) {
             final wide = constraints.maxWidth > constraints.maxHeight;
+            _pageHeight = constraints.maxHeight;
             return GestureDetector(
-              onVerticalDragEnd: (details) {
-                if (_loading || wide) return;
-                final velocity = details.primaryVelocity ?? 0;
-                if (velocity < -300) unawaited(_load(_episode + 1));
-                if (velocity > 300) unawaited(_load(_episode - 1));
+              onTap: _toggleControls,
+              onVerticalDragStart: wide
+                  ? null
+                  : (details) {
+                      if (_loading || _switching || _sheetOpen) return;
+                      final box =
+                          _videoKey.currentContext?.findRenderObject()
+                              as RenderBox?;
+                      if (box == null ||
+                          !(Offset.zero & box.size).contains(
+                            box.globalToLocal(details.globalPosition),
+                          )) {
+                        return;
+                      }
+                      _hideTimer?.cancel();
+                      _dragging = true;
+                    },
+              onVerticalDragUpdate: wide
+                  ? null
+                  : (details) {
+                      if (!_dragging || _loading || _switching || _sheetOpen) {
+                        return;
+                      }
+                      setState(
+                        () => _drag = (_drag + details.delta.dy).clamp(
+                          -_pageHeight,
+                          _pageHeight,
+                        ),
+                      );
+                    },
+              onVerticalDragCancel: () {
+                setState(() {
+                  _drag = 0;
+                  _dragging = false;
+                });
+                _armControls();
               },
-              child: wide
-                  ? Stack(
-                      children: [
-                        Positioned.fill(child: _videoArea()),
-                        Positioned(top: 0, left: 0, right: 0, child: _header()),
-                        Positioned(
-                          bottom: 0,
-                          left: 0,
-                          right: 0,
-                          child: GlassSurface(
-                            dark: true,
-                            radius: 16,
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [_progress(), _bottomBar()],
+              onVerticalDragEnd: wide
+                  ? null
+                  : (details) => _dragging
+                        ? unawaited(_finishDrag(details.primaryVelocity ?? 0))
+                        : null,
+              child: AnimatedSlide(
+                key: ValueKey(_generation),
+                offset: Offset(0, _drag / _pageHeight),
+                duration: _dragging || MediaQuery.disableAnimationsOf(context)
+                    ? Duration.zero
+                    : const Duration(milliseconds: 220),
+                curve: Curves.easeOutCubic,
+                child: wide
+                    ? Stack(
+                        children: [
+                          Positioned.fill(child: _videoArea()),
+                          Positioned(
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            child: _chrome(_header()),
+                          ),
+                          Positioned(
+                            bottom: 0,
+                            left: 0,
+                            right: 0,
+                            child: _chrome(
+                              GlassSurface(
+                                dark: true,
+                                radius: 16,
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [_progress(), _bottomBar()],
+                                ),
+                              ),
                             ),
                           ),
-                        ),
-                      ],
-                    )
-                  : Column(
-                      children: [
-                        _header(),
-                        Expanded(child: _videoArea()),
-                        _information(constraints.maxHeight * .27),
-                        _progress(),
-                        _bottomBar(),
-                      ],
-                    ),
+                        ],
+                      )
+                    : Column(
+                        children: [
+                          _chrome(_header()),
+                          Expanded(
+                            child: SizedBox(
+                              key: _videoKey,
+                              child: _videoArea(),
+                            ),
+                          ),
+                          _information(constraints.maxHeight * .27),
+                          _chrome(_progress()),
+                          _chrome(_bottomBar()),
+                        ],
+                      ),
+              ),
             );
           },
         ),
