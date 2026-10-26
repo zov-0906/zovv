@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="LaunchTheme" parent="@android:style/Theme.Light.NoTitleBar">
+        <item name="android:windowSplashScreenBackground">#F9FAFC</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/zovv_mark</item>
+        <item name="android:windowBackground">#F9FAFC</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:statusBarColor">#F9FAFC</item>
+        <item name="android:navigationBarColor">#F9FAFC</item>
+    </style>
+</resources>
+

@@ -1,0 +1,15 @@
+.toolchain/
+.dart_tool/
+build/
+android/local.properties
+.idea/
+*.iml
+.flutter-plugins-dependencies
+coverage/
+artifacts/
+tools/**/node_modules/
+*.ipa
+*.p12
+*.mobileprovision
+.env
+.env.*
