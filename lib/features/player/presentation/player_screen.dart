@@ -244,6 +244,8 @@ class _PlayerScreenState extends State<PlayerScreen>
       }
     }
     if (player.value.isCompleted &&
+        !_dragging &&
+        !_switching &&
         !_advancing &&
         _autoNext &&
         _foreground &&
@@ -987,10 +989,13 @@ class _PlayerScreenState extends State<PlayerScreen>
     ),
   );
 
+  bool get _fullscreen =>
+      _landscape || MediaQuery.sizeOf(context).aspectRatio > 1;
+
   Widget _chrome(Widget child) => IgnorePointer(
-    ignoring: !_controlsVisible && !_userPaused,
+    ignoring: _fullscreen && !_controlsVisible && !_userPaused,
     child: AnimatedOpacity(
-      opacity: _controlsVisible || _userPaused ? 1 : 0,
+      opacity: !_fullscreen || _controlsVisible || _userPaused ? 1 : 0,
       duration: const Duration(milliseconds: 180),
       child: child,
     ),
@@ -1011,6 +1016,7 @@ class _PlayerScreenState extends State<PlayerScreen>
         widget.drama.episodes[target].locked) {
       setState(() => _drag = 0);
       _armControls();
+      _onVideo();
       return;
     }
     _switching = true;

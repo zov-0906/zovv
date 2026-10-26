@@ -50,6 +50,8 @@ void main() {
       await tester.pump(const Duration(seconds: 4));
       await tester.pumpAndSettle();
       expect(find.byTooltip('暂停').hitTestable(), findsNothing);
+      expect(find.byTooltip('更多播放设置').hitTestable(), findsNothing);
+      expect(find.byTooltip('横竖屏切换').hitTestable(), findsNothing);
       players.first.value = players.first.value.copyWith(
         position: const Duration(seconds: 60),
         isCompleted: true,
@@ -61,6 +63,8 @@ void main() {
         isTrue,
       );
       expect(find.byTooltip('暂停').hitTestable(), findsNothing);
+      expect(find.byTooltip('更多播放设置').hitTestable(), findsNothing);
+      expect(find.byTooltip('横竖屏切换').hitTestable(), findsNothing);
       await tester.tapAt(const Offset(400, 250));
       await tester.pumpAndSettle();
       await tester.tap(find.byTooltip('暂停'));
