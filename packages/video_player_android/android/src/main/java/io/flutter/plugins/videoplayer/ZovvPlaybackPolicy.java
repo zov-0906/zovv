@@ -14,8 +14,8 @@ public final class ZovvPlaybackPolicy {
     int back = options.backBufferDurationMs == null ? 0
         : (int) Math.min(options.backBufferDurationMs, Integer.MAX_VALUE);
     return new DefaultLoadControl.Builder()
-        .setBufferDurationsMs(8000, 20000, 750, 1500)
-        .setTargetBufferBytes(16 * 1024 * 1024)
+        .setBufferDurationsMs(15000, 30000, 3000, 6000)
+        .setTargetBufferBytes(24 * 1024 * 1024)
         .setPrioritizeTimeOverSizeThresholds(false)
         .setBackBuffer(back, true).build();
   }

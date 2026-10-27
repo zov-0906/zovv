@@ -1,5 +1,5 @@
 param(
-  [string]$GatewayUrl = 'https://api.getagentconsole.space',
+  [string]$GatewayUrl = 'https://140.143.201.224:8443',
   [string]$TokenFile = 'artifacts\gateway\deploy-token.txt',
   [string]$FlutterArgs = ''
 )

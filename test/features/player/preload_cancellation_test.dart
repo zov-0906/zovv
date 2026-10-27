@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:video_player/video_player.dart';
 import 'package:zovv/features/drama/application/drama_library_controller.dart';
 import 'package:zovv/features/drama/data/demo_drama_repository.dart';
 import 'package:zovv/features/drama/domain/drama.dart';
@@ -54,6 +55,9 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      players.first.value = players.first.value.copyWith(
+        buffered: [DurationRange(Duration.zero, const Duration(seconds: 30))],
+      );
       await tester.pump(const Duration(seconds: 3));
       expect(repo.requests, 2);
       if (trigger == 'buffering') {

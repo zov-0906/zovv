@@ -10,8 +10,8 @@ Local changes are isolated to Android Java code:
   cache under Android's private cache directory, excluded from normal backups.
 - Cache identities separate source versions, episodes, quality and asset names.
   Cache failures fall back to the upstream data source.
-- Load control targets 8–20 seconds and 16 MiB of encoded buffers per player,
-  with a 750ms startup threshold and 1500ms rebuffer threshold. These are targets,
+- Load control targets 15–30 seconds and 24 MiB of encoded buffers per player,
+  with a 3000ms startup threshold and 6000ms rebuffer threshold. These are targets,
   not guarantees or a total-process memory cap. Native decoder memory is separate.
 - A `zovv/video-cache` method channel reports usage and supports clearing only
   when no active media read is in progress. App settings exposes this after exit.

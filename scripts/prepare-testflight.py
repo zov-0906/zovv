@@ -76,7 +76,7 @@ project.write_text(source)
     'manageAppVersionAndBuildNumber':False,'testFlightInternalTestingOnly':True,
 }))
 (temp/'defines.json').write_text(json.dumps({
-    'ZOVV_GATEWAY':'https://api.getagentconsole.space',
+    'ZOVV_GATEWAY':'https://140.143.201.224:8443',
     'ZOVV_GATEWAY_TOKEN':os.environ['ZOVV_GATEWAY_TOKEN'],
     'ZOVV_STREAM_PLAYBACK':'true',
 }))

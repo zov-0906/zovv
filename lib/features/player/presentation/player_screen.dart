@@ -18,6 +18,7 @@ import '../../drama/domain/danmaku.dart';
 import '../../drama/domain/watch_progress.dart';
 import '../application/next_episode_buffer.dart';
 import '../application/playback_preferences.dart';
+import '../application/preload_budget.dart';
 import 'widgets/episode_picker.dart';
 import 'widgets/danmaku_overlay.dart';
 import '../../drama/presentation/widgets/drama_comment_sheet.dart';
@@ -88,6 +89,7 @@ class _PlayerScreenState extends State<PlayerScreen>
   int? _attemptedNext;
   String _loadingMessage = '正在连接故事…';
   final _timing = Stopwatch();
+  DateTime? _bufferingStarted;
 
   @override
   void initState() {
@@ -449,10 +451,31 @@ class _PlayerScreenState extends State<PlayerScreen>
   void _onVideo() {
     final player = _player;
     if (!mounted || player == null) return;
-    if (player.value.isBuffering && _nextState == NextEpisodeState.preparing) {
+    final stalled = player.value.isBuffering && player.value.isPlaying;
+    if (stalled && _bufferingStarted == null) {
+      _bufferingStarted = DateTime.now();
+      debugPrint(
+        'ZOVV buffer start episode=${_episode + 1} '
+        'positionMs=${player.value.position.inMilliseconds} '
+        'aheadMs=${bufferedAhead(player.value).inMilliseconds}',
+      );
+    } else if (!stalled && _bufferingStarted != null) {
+      debugPrint(
+        'ZOVV buffer end episode=${_episode + 1} '
+        'waitMs=${DateTime.now().difference(_bufferingStarted!).inMilliseconds} '
+        'aheadMs=${bufferedAhead(player.value).inMilliseconds}',
+      );
+      _bufferingStarted = null;
+    }
+    if ((player.value.isBuffering ||
+            bufferedAhead(player.value) < const Duration(seconds: 3)) &&
+        _nextState == NextEpisodeState.preparing) {
       _bufferingPreloadTimer ??= Timer(const Duration(seconds: 2), () {
         _bufferingPreloadTimer = null;
-        if (mounted && (_player?.value.isBuffering ?? false)) {
+        if (mounted &&
+            _player != null &&
+            (_player!.value.isBuffering ||
+                bufferedAhead(_player!.value) < const Duration(seconds: 3))) {
           _stopPreload();
         }
       });
@@ -516,7 +539,8 @@ class _PlayerScreenState extends State<PlayerScreen>
           !_foreground ||
           !_autoNext ||
           (_player?.value.isBuffering ?? true) ||
-          !(_player?.value.isPlaying ?? false)) {
+          _player == null ||
+          !canWarmNext(_player!.value)) {
         return;
       }
       _attemptedNext = next;
