@@ -6,7 +6,8 @@ Bundle ID：`com.zovv.zovv`。App 已由用户在 App Store Connect 创建。
 
 - 新流程 `.github/workflows/ios-testflight.yml`，手动触发，运行检查、正式签名、导出仅供内部 TestFlight 使用的 IPA 并上传。
 - 不自动提交 App Store 审核，不触发外部测试。上传成功后仍需等待苹果处理，并在 TestFlight 内部测试组中分配构建。
-- Apple 签名资料尚未提供，未运行 macOS 正式构建和上传；本地仅完成脚本语法、Info.plist 和图标检查。
+- Apple 签名资料已加密配置为 GitHub Secrets；2026-10-27 首次 macOS 正式签名、归档和上传成功，构建号 `1001.1`，工作流 `40469539402`。上传日志确认 `UPLOAD SUCCEEDED with no errors`；上传成功与苹果处理完成/分配内部测试组是不同状态。
+- 本地静态分析和 60 项 Flutter 回归通过；云端检查、签名与上传步骤均通过。正式 IPA 不作为公开构建产物发布，仅保留调试符号。
 - iOS 全尺寸图标已从 Flutter 默认图标替换为项目已有 ZOVV 标志，与 Android 当前矢量图标一致。1024px 图标为不透明 RGB，不预裁圆角；同步替换 Android 遗留 mipmap 默认图标。显示名统一为 ZOVV。
 
 ## 1. 分发证书
