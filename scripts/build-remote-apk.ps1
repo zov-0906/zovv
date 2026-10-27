@@ -12,7 +12,8 @@ try {
   . (Join-Path $PSScriptRoot 'enter-dev.ps1')
   $defines = @(
     "--dart-define=ZOVV_GATEWAY=$GatewayUrl",
-    "--dart-define=ZOVV_GATEWAY_TOKEN=$token"
+    "--dart-define=ZOVV_GATEWAY_TOKEN=$token",
+    '--dart-define=ZOVV_STREAM_PLAYBACK=true'
   )
   if ($FlutterArgs) { $defines += $FlutterArgs.Split(' ') }
   $args = @('--no-version-check', 'build', 'apk', '--debug',
