@@ -1,5 +1,7 @@
 import 'widgets/glass_navigation.dart';
 
+import 'dart:async';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -11,7 +13,6 @@ import '../../../core/widgets/liquid_segmented_control.dart';
 import '../../../core/widgets/soft_background.dart';
 import '../../../core/widgets/zovv_loader.dart';
 import '../../player/presentation/player_screen.dart';
-import '../../player/presentation/widgets/video_cache_tile.dart';
 import '../application/drama_catalog_controller.dart';
 import '../application/drama_library_controller.dart';
 
@@ -21,6 +22,7 @@ import '../data/local_library_storage.dart';
 import '../domain/drama.dart';
 import '../domain/watch_progress.dart';
 import 'discover_screen.dart';
+import 'my_screen.dart';
 import 'drama_details_page.dart';
 import 'drama_library_screen.dart';
 import 'drama_search_screen.dart';
@@ -33,12 +35,14 @@ class DramaShell extends StatefulWidget {
     this.storage,
     this.themeMode = ThemeMode.system,
     this.onThemeMode,
+    this.onPrepared,
   });
   final VoidCallback onReplayStartup;
   final DramaRepository? repository;
   final LibraryStorage? storage;
   final ThemeMode themeMode;
   final ValueChanged<ThemeMode>? onThemeMode;
+  final VoidCallback? onPrepared;
   @override
   State<DramaShell> createState() => _DramaShellState();
 }
@@ -50,6 +54,11 @@ class _DramaShellState extends State<DramaShell> {
   late final DramaCatalogController _catalog;
   late final DramaLibraryController _library;
   int _tab = 0;
+  final _topSignal = ValueNotifier(0);
+  bool _showTop = false;
+  Timer? _startupDeadline;
+  bool _prepared = false;
+  bool _localReady = false;
   String? _resumingId;
   @override
   void initState() {
@@ -67,13 +76,45 @@ class _DramaShellState extends State<DramaShell> {
             : 'demo';
       },
     );
-    _catalog.load();
-    _library = DramaLibraryController(widget.storage ?? LocalLibraryStorage())
-      ..load();
+    _catalog.addListener(_checkPrepared);
+    unawaited(_catalog.load());
+    _library = DramaLibraryController(widget.storage ?? LocalLibraryStorage());
+    unawaited(_prepareLocal());
+    _startupDeadline = Timer(
+      const Duration(milliseconds: 2200),
+      _completePrepared,
+    );
+  }
+
+  Future<void> _prepareLocal() async {
+    try {
+      await _library.load().timeout(const Duration(seconds: 2));
+    } catch (_) {}
+    _localReady = true;
+    _checkPrepared();
+  }
+
+  void _checkPrepared() {
+    if (_localReady && (_catalog.dramas.isNotEmpty || !_catalog.loading)) {
+      _completePrepared();
+    }
+  }
+
+  void _completePrepared() {
+    if (!mounted || _prepared) return;
+    _prepared = true;
+    _startupDeadline?.cancel();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) widget.onPrepared?.call();
+    });
+    WidgetsBinding.instance.scheduleFrame();
   }
 
   @override
   void dispose() {
+    _startupDeadline?.cancel();
+    _catalog.removeListener(_checkPrepared);
+    _topSignal.dispose();
     _catalog.dispose();
     _library.dispose();
     super.dispose();
@@ -217,6 +258,10 @@ class _DramaShellState extends State<DramaShell> {
 
   void _select(int tab) {
     FocusScope.of(context).unfocus();
+    if (tab == 0 && _tab == 0 && _showTop) {
+      _topSignal.value++;
+      return;
+    }
     setState(() => _tab = tab);
   }
 
@@ -230,6 +275,10 @@ class _DramaShellState extends State<DramaShell> {
       themeMode: widget.themeMode,
       onThemeMode: widget.onThemeMode,
       onReplayStartup: widget.onReplayStartup,
+      onSettings: () {
+        Navigator.pop(context);
+        _select(3);
+      },
     ),
   );
   @override
@@ -307,6 +356,12 @@ class _DramaShellState extends State<DramaShell> {
                                 index: _tab,
                                 children: [
                                   DiscoverScreen(
+                                    scrollToTop: _topSignal,
+                                    onScrollState: (value) {
+                                      if (mounted && _showTop != value) {
+                                        setState(() => _showTop = value);
+                                      }
+                                    },
                                     loading: _catalog.loading,
                                     catalogError: _catalog.error,
                                     onRetry: _catalog.load,
@@ -367,6 +422,14 @@ class _DramaShellState extends State<DramaShell> {
                                     onResume: _resume,
                                     onExplore: () => _select(0),
                                   ),
+                                  MyScreen(
+                                    library: _library,
+                                    onResume: _resume,
+                                    themeMode: widget.themeMode,
+                                    onThemeMode: widget.onThemeMode,
+                                    onReplay: widget.onReplayStartup,
+                                    active: _tab == 3,
+                                  ),
                                 ],
                               ),
                               if (MediaQuery.viewInsetsOf(context).bottom == 0)
@@ -377,6 +440,7 @@ class _DramaShellState extends State<DramaShell> {
                                   child: SafeArea(
                                     top: false,
                                     child: GlassNavigation(
+                                      showTop: _tab == 0 && _showTop,
                                       index: _tab,
                                       onChanged: _select,
                                     ),
@@ -429,137 +493,61 @@ class _PreparingOverlay extends StatelessWidget {
   }
 }
 
-/// About + appearance + replay. Kept as its own widget so the sheet rebuilds
-/// when the theme mode changes underneath it.
+/// Compact information sheet; persistent preferences live in My.
 class _AboutSheet extends StatelessWidget {
   const _AboutSheet({
     required this.themeMode,
     required this.onThemeMode,
     required this.onReplayStartup,
+    required this.onSettings,
   });
   final ThemeMode themeMode;
   final ValueChanged<ThemeMode>? onThemeMode;
-  final VoidCallback onReplayStartup;
-
+  final VoidCallback onReplayStartup, onSettings;
   @override
-  Widget build(BuildContext context) {
-    final palette = context.palette;
-    return GlassSurface(
-      radius: 26,
-      child: SafeArea(
+  Widget build(BuildContext context) => GlassSurface(
+    radius: 26,
+    child: SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const SizedBox(height: 9),
-            Container(
-              width: 38,
-              height: 4,
-              decoration: BoxDecoration(
-                color: palette.muted.withValues(alpha: .45),
-                borderRadius: BorderRadius.circular(2),
+            Text(
+              '关于 ZOVV',
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w600,
+                color: context.palette.ink,
               ),
             ),
-            Flexible(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(24, 14, 24, 26),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '关于 ZOVV',
-                      style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w600,
-                        color: palette.ink,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      '把片刻，留给喜欢的故事。',
-                      style: TextStyle(color: palette.muted, fontSize: 12.5),
-                    ),
-                    const SizedBox(height: 22),
-                    Text(
-                      '外观',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: palette.ink,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    LiquidSegmentedControl<ThemeMode>(
-                      semanticLabel: '外观模式',
-                      value: themeMode,
-                      height: 42,
-                      segments: const [
-                        LiquidSegment(value: ThemeMode.system, label: '跟随系统'),
-                        LiquidSegment(value: ThemeMode.light, label: '浅色'),
-                        LiquidSegment(value: ThemeMode.dark, label: '夜间'),
-                      ],
-                      onChanged: (mode) => onThemeMode?.call(mode),
-                    ),
-                    const SizedBox(height: 20),
-                    Text(
-                      '当前来源为红果，使用 App（快速）目录。真人剧、漫剧与 AI 剧可切换。内容由远程服务提供，播放范围由来源平台决定。',
-                      style: TextStyle(
-                        fontSize: 11.5,
-                        height: 1.8,
-                        color: palette.muted,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(10),
-                        onTap: () {
-                          Navigator.pop(context);
-                          onReplayStartup();
-                        },
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 11),
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.auto_awesome_outlined,
-                                size: 20,
-                                color: palette.ink,
-                              ),
-                              const SizedBox(width: 14),
-                              Expanded(
-                                child: Text(
-                                  '重播启动动画',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: palette.ink,
-                                  ),
-                                ),
-                              ),
-                              Icon(
-                                Icons.chevron_right_rounded,
-                                size: 20,
-                                color: palette.muted,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                    const VideoCacheTile(),
-                    const SizedBox(height: 6),
-                    Text(
-                      'ZOVV STORIES · 0.2.0',
-                      style: TextStyle(fontSize: 10, color: palette.muted),
-                    ),
-                  ],
-                ),
-              ),
+            const SizedBox(height: 8),
+            Text(
+              '好故事，慢慢看。',
+              style: TextStyle(fontSize: 13, color: context.palette.muted),
+            ),
+            const SizedBox(height: 20),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.tune_rounded),
+              title: const Text('偏好与缓存管理'),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: onSettings,
+            ),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.auto_awesome_outlined),
+              title: const Text('重播开屏演示'),
+              onTap: () {
+                Navigator.pop(context);
+                onReplayStartup();
+              },
             ),
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
 }

@@ -10,6 +10,7 @@ dependencies:
   crypto: ^3.0.7
   flutter:
     sdk: flutter
+  package_info_plus: ^10.2.2
   shared_preferences: ^2.5.3
   video_player: ^2.10.0
 

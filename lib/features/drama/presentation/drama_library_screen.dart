@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/widgets/zovv_refresh.dart';
+
 import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/liquid_segmented_control.dart';
 import '../application/drama_library_controller.dart';
 import '../domain/drama.dart';
 import 'widgets/drama_poster.dart';
@@ -30,7 +31,6 @@ class DramaLibraryScreen extends StatefulWidget {
 }
 
 class _DramaLibraryScreenState extends State<DramaLibraryScreen> {
-  int _section = 0;
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
@@ -38,9 +38,7 @@ class _DramaLibraryScreenState extends State<DramaLibraryScreen> {
       animation: widget.library,
       builder: (context, _) {
         final library = widget.library;
-        final ids = _section == 0
-            ? library.favorites.toList()
-            : library.recent.map((progress) => progress.dramaId).toList();
+        final ids = library.favorites.toList();
         final available = {
           for (final drama in library.knownDramas) drama.id: drama,
           for (final drama in widget.dramas) drama.id: drama,
@@ -54,7 +52,7 @@ class _DramaLibraryScreenState extends State<DramaLibraryScreen> {
                   drama.sourceName == widget.sourceFilter,
             )
             .toList();
-        return RefreshIndicator.adaptive(
+        return ZovvRefresh(
           onRefresh: widget.library.refresh,
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(
@@ -78,16 +76,6 @@ class _DramaLibraryScreenState extends State<DramaLibraryScreen> {
                   style: TextStyle(fontSize: 12, color: palette.muted),
                 ),
                 const SizedBox(height: 24),
-                LiquidSegmentedControl<int>(
-                  semanticLabel: '片单分类',
-                  value: _section,
-                  height: 42,
-                  segments: const [
-                    LiquidSegment(value: 0, label: '收藏'),
-                    LiquidSegment(value: 1, label: '观看记录'),
-                  ],
-                  onChanged: (value) => setState(() => _section = value),
-                ),
                 if (library.error != null)
                   Padding(
                     padding: const EdgeInsets.only(top: 10),
@@ -108,20 +96,18 @@ class _DramaLibraryScreenState extends State<DramaLibraryScreen> {
                     child: Column(
                       children: [
                         Icon(
-                          _section == 0
-                              ? Icons.bookmark_border_rounded
-                              : Icons.history_rounded,
+                          Icons.bookmark_border_rounded,
                           color: palette.muted,
                           size: 38,
                         ),
                         const SizedBox(height: 18),
                         Text(
-                          _section == 0 ? '把喜欢的故事留在这里' : '你的故事，还没开始',
+                          '把喜欢的故事留在这里',
                           style: TextStyle(fontSize: 17, color: palette.ink),
                         ),
                         const SizedBox(height: 9),
                         Text(
-                          _section == 0 ? '在剧集详情中轻点收藏，就不会错过' : '播放后会自动记录观看进度',
+                          '在剧集详情中轻点收藏，就不会错过',
                           style: TextStyle(fontSize: 12, color: palette.muted),
                         ),
                         const SizedBox(height: 22),
@@ -195,17 +181,12 @@ class _DramaLibraryScreenState extends State<DramaLibraryScreen> {
                                 ),
                               ),
                               IconButton(
-                                tooltip: _section == 0 ? '取消收藏' : '继续观看',
+                                tooltip: '取消收藏',
                                 color: palette.ink,
-                                onPressed: _section == 0
-                                    ? () => library.toggleFavorite(drama.id)
-                                    : () => (widget.onResume ?? widget.onOpen)(
-                                        drama,
-                                      ),
-                                icon: Icon(
-                                  _section == 0
-                                      ? Icons.bookmark_rounded
-                                      : Icons.play_arrow_rounded,
+                                onPressed: () =>
+                                    library.toggleFavorite(drama.id),
+                                icon: const Icon(
+                                  Icons.bookmark_rounded,
                                   size: 21,
                                 ),
                               ),

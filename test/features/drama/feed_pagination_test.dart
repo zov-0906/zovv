@@ -78,12 +78,15 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(DramaCard), findsNWidgets(2));
     await tester.drag(
-      find.byType(SingleChildScrollView).first,
+      find.byType(CustomScrollView).first,
       const Offset(0, -1600),
     );
     await tester.pumpAndSettle();
     expect(repository.calls, greaterThan(1));
-    expect(find.byType(DramaCard), findsNWidgets(repository.calls * 2));
+    expect(
+      find.byType(DramaCard),
+      findsWidgets,
+    ); // Lazy grid builds visible items only.
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
   });

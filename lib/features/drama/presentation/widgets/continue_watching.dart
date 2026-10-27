@@ -52,7 +52,7 @@ class ContinueWatchingRail extends StatelessWidget {
         ),
         const SizedBox(height: 14),
         SizedBox(
-          height: 141,
+          height: 106,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             itemCount: items.length,
@@ -90,61 +90,57 @@ class _ResumeCard extends StatelessWidget {
         onTap: busy ? null : onTap,
         borderRadius: BorderRadius.circular(16),
         child: SizedBox(
-          width: 172,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          width: 268,
+          child: Row(
             children: [
               SizedBox(
-                height: 97,
+                width: 100,
+                height: 96,
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(15),
                   child: Stack(
                     fit: StackFit.expand,
                     children: [
                       DramaPoster(drama: entry.drama, showTitle: false),
-                      Positioned(
-                        top: 8,
-                        right: 8,
-                        child: Container(
-                          width: 25,
-                          height: 25,
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: .24),
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: Colors.white.withValues(alpha: .35),
-                            ),
-                          ),
-                          child: busy
-                              ? const ZovvLoader(size: 13, color: Colors.white)
-                              : const Icon(
-                                  Icons.play_arrow_rounded,
-                                  size: 16,
-                                  color: Colors.white,
-                                ),
-                        ),
+                      Align(
+                        alignment: Alignment.center,
+                        child: busy
+                            ? const ZovvLoader(size: 18, color: Colors.white)
+                            : const Icon(
+                                Icons.play_circle_fill_rounded,
+                                color: Colors.white,
+                                size: 30,
+                              ),
                       ),
                     ],
                   ),
                 ),
               ),
-              const SizedBox(height: 8),
-              Text(
-                entry.drama.title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w600,
-                  color: palette.ink,
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      entry.drama.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: palette.ink,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      entry.caption,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 10, color: palette.muted),
+                    ),
+                  ],
                 ),
-              ),
-              const SizedBox(height: 3),
-              Text(
-                entry.caption,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 9.5, color: palette.muted),
               ),
             ],
           ),

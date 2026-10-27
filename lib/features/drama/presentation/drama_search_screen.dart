@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../../../core/widgets/zovv_refresh.dart';
+
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/glass_surface.dart';
 import '../domain/drama.dart';
@@ -127,7 +129,7 @@ class _DramaSearchScreenState extends State<DramaSearchScreen> {
                         .contains(query),
               )
               .toList();
-    return RefreshIndicator.adaptive(
+    return ZovvRefresh(
       onRefresh: _search,
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(

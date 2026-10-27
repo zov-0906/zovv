@@ -32,6 +32,7 @@ class ZovvApp extends StatefulWidget {
 
 class _ZovvAppState extends State<ZovvApp> {
   bool _showStartup = true;
+  final _startupReady = ValueNotifier(false);
   late bool _fullSequence = !widget.hasCompletedStartup;
   int _playback = 0;
   late final ThemeController _theme =
@@ -50,6 +51,7 @@ class _ZovvAppState extends State<ZovvApp> {
 
   @override
   void dispose() {
+    _startupReady.dispose();
     if (widget.themeController == null) _theme.dispose();
     super.dispose();
   }
@@ -68,6 +70,7 @@ class _ZovvAppState extends State<ZovvApp> {
           ExcludeSemantics(
             excluding: _showStartup,
             child: DramaShell(
+              onPrepared: () => _startupReady.value = true,
               onReplayStartup: _replay,
               repository: widget.dramaRepository,
               storage: widget.libraryStorage,
@@ -77,6 +80,7 @@ class _ZovvAppState extends State<ZovvApp> {
           ),
           if (_showStartup)
             StartupScreen(
+              ready: _startupReady,
               key: ValueKey(_playback),
               config: StartupConfig(fullSequence: _fullSequence),
               onComplete: _complete,

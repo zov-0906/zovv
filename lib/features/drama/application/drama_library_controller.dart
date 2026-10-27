@@ -112,6 +112,20 @@ class DramaLibraryController extends ChangeNotifier {
     persist();
   }
 
+  void removeHistory(String id) {
+    if (!ready || _disposed) return;
+    _progress.remove(id);
+    notifyListeners();
+    persist();
+  }
+
+  void clearHistory() {
+    if (!ready || _disposed) return;
+    _progress.clear();
+    notifyListeners();
+    persist();
+  }
+
   Future<void> persist() {
     if (!ready || _disposed) return Future.value();
     final payload = jsonEncode({

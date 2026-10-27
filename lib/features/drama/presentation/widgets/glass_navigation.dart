@@ -9,16 +9,19 @@ class GlassNavigation extends StatelessWidget {
     super.key,
     required this.index,
     required this.onChanged,
+    this.showTop = false,
   });
   final int index;
   final ValueChanged<int> onChanged;
+  final bool showTop;
 
   static const _icons = [
     Icons.explore_rounded,
     Icons.search_rounded,
     Icons.bookmark_rounded,
+    Icons.person_outline_rounded,
   ];
-  static const _labels = ['发现', '搜索', '片单'];
+  static const _labels = ['发现', '搜索', '片单', '我的'];
 
   @override
   Widget build(BuildContext context) {
@@ -37,7 +40,7 @@ class GlassNavigation extends StatelessWidget {
             return Stack(
               children: [
                 AnimatedAlign(
-                  alignment: Alignment(index - 1.0, 0),
+                  alignment: Alignment(2 * index / (_labels.length - 1) - 1, 0),
                   duration: duration,
                   curve: Curves.easeOutCubic,
                   child: Container(
@@ -70,26 +73,45 @@ class GlassNavigation extends StatelessWidget {
                           key: Key('nav-$item'),
                           borderRadius: BorderRadius.circular(13),
                           onTap: () => onChanged(item),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                _icons[item],
-                                size: 19,
-                                color: active ? palette.accent : palette.muted,
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                _labels[item],
-                                style: TextStyle(
-                                  fontSize: 9,
-                                  fontWeight: active
-                                      ? FontWeight.w600
-                                      : FontWeight.w400,
-                                  color: active ? palette.ink : palette.muted,
+                          child: AnimatedSwitcher(
+                            duration: duration,
+                            transitionBuilder: (child, animation) =>
+                                FadeTransition(
+                                  opacity: animation,
+                                  child: SlideTransition(
+                                    position: Tween(
+                                      begin: const Offset(0, .15),
+                                      end: Offset.zero,
+                                    ).animate(animation),
+                                    child: child,
+                                  ),
                                 ),
-                              ),
-                            ],
+                            child: Column(
+                              key: ValueKey('$item-${item == 0 && showTop}'),
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  item == 0 && showTop
+                                      ? Icons.vertical_align_top_rounded
+                                      : _icons[item],
+                                  size: 19,
+                                  color: active
+                                      ? palette.accent
+                                      : palette.muted,
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  item == 0 && showTop ? '回顶部' : _labels[item],
+                                  style: TextStyle(
+                                    fontSize: 9,
+                                    fontWeight: active
+                                        ? FontWeight.w600
+                                        : FontWeight.w400,
+                                    color: active ? palette.ink : palette.muted,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ),

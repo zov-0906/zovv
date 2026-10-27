@@ -49,7 +49,7 @@ void main() {
     await tester.tap(find.byTooltip('关于 ZOVV'));
     await tester.pumpAndSettle();
     expect(find.text('经典启动演出'), findsNothing);
-    await tester.tap(find.text('重播启动动画'));
+    await tester.tap(find.text('重播开屏演示'));
     await tester.pump();
     await advance(tester, 2000);
     expect(find.byKey(const Key('startup-start')), findsOneWidget);
