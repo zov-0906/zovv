@@ -11,6 +11,7 @@ import '../../../core/widgets/liquid_segmented_control.dart';
 import '../../../core/widgets/soft_background.dart';
 import '../../../core/widgets/zovv_loader.dart';
 import '../../player/presentation/player_screen.dart';
+import '../../player/presentation/widgets/video_cache_tile.dart';
 import '../application/drama_catalog_controller.dart';
 import '../application/drama_library_controller.dart';
 
@@ -349,6 +350,7 @@ class _DramaShellState extends State<DramaShell> {
                                     busyId: _resumingId,
                                   ),
                                   DramaSearchScreen(
+                                    onRefreshCatalog: _catalog.load,
                                     repository: _catalog.repository,
                                     dramas: _catalog.dramas,
                                     onOpen: _open,
@@ -545,6 +547,7 @@ class _AboutSheet extends StatelessWidget {
                         ),
                       ),
                     ),
+                    const VideoCacheTile(),
                     const SizedBox(height: 6),
                     Text(
                       'ZOVV STORIES · 0.2.0',

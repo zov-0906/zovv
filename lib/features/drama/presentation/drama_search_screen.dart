@@ -15,10 +15,12 @@ class DramaSearchScreen extends StatefulWidget {
     required this.dramas,
     required this.onOpen,
     this.repository,
+    this.onRefreshCatalog,
   });
   final List<Drama> dramas;
   final ValueChanged<Drama> onOpen;
   final DramaRepository? repository;
+  final Future<void> Function()? onRefreshCatalog;
   @override
   State<DramaSearchScreen> createState() => _DramaSearchScreenState();
 }
@@ -68,6 +70,7 @@ class _DramaSearchScreenState extends State<DramaSearchScreen> {
     _debounce?.cancel();
     final query = _query.trim();
     if (query.isEmpty || widget.repository is! SearchableDramaRepository) {
+      if (query.isEmpty) await widget.onRefreshCatalog?.call();
       return;
     }
     final request = ++_request;
@@ -205,9 +208,17 @@ class _DramaSearchScreenState extends State<DramaSearchScreen> {
               ),
             ],
             const SizedBox(height: 16),
-            if (_loading)
+            if (_error != null && results.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Text(
+                  '更新失败，保留上次搜索结果。下拉可重试。',
+                  style: TextStyle(color: palette.muted, fontSize: 12),
+                ),
+              ),
+            if (_loading && _remote == null)
               const DramaGridSkeleton(rows: 2)
-            else if (_error != null)
+            else if (_error != null && results.isEmpty)
               Center(
                 child: Column(
                   children: [

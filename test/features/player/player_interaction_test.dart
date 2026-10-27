@@ -6,6 +6,9 @@ import 'package:zovv/features/drama/domain/drama.dart';
 import 'package:zovv/features/player/presentation/player_screen.dart';
 
 import '../startup/memory_library_storage.dart';
+
+import 'package:zovv/features/player/application/playback_preferences.dart';
+
 import 'next_episode_buffer_test.dart' show FakePlayer, source;
 
 class PlayingFake extends FakePlayer {
@@ -23,12 +26,70 @@ class PlaybackFeed extends DemoDramaRepository {
   ) async => source();
 }
 
+class EventFeed extends PlaybackFeed {
+  @override
+  Future<PlaybackSource> resolveEpisode(
+    String dramaId,
+    String episodeId,
+  ) async => PlaybackSource(
+    uri: Uri.parse('https://example.com/index.m3u8'),
+    attribution: 'test',
+    duration: const Duration(seconds: 70),
+  );
+}
+
+class EventFake extends PlayingFake {
+  @override
+  Future<void> initialize() async {
+    await super.initialize();
+    value = value.copyWith(duration: const Duration(seconds: 2));
+  }
+}
+
 void main() {
+  testWidgets('initial HLS window duration cannot cause premature auto-next', (
+    tester,
+  ) async {
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    final library = DramaLibraryController(MemoryLibraryStorage());
+    await library.load();
+    addTearDown(library.dispose);
+    final players = <EventFake>[];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: PlayerScreen(
+          drama: DemoDramaRepository.catalog.first,
+          repository: EventFeed(),
+          library: library,
+          preferences: PlaybackPreferences(storage: MemoryLibraryStorage()),
+          createPlayer: (_) {
+            final player = EventFake();
+            players.add(player);
+            return player;
+          },
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final current = players.first;
+    expect(current.value.duration, const Duration(seconds: 70));
+    final reported = const Duration(seconds: 3);
+    current.value = current.value.copyWith(
+      position: reported,
+      isCompleted: reported >= current.value.duration,
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('第 1 集'), findsWidgets);
+    expect(find.text('第 2 集'), findsNothing);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
   testWidgets(
     'automatic handoff stays clear while a user pause reveals controls',
     (tester) async {
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
       final players = <PlayingFake>[];
+      final preferences = PlaybackPreferences(storage: MemoryLibraryStorage());
+      await preferences.save(speed: 1.5);
       final library = DramaLibraryController(MemoryLibraryStorage());
       await library.load();
       addTearDown(library.dispose);
@@ -38,6 +99,7 @@ void main() {
             drama: DemoDramaRepository.catalog.first,
             repository: PlaybackFeed(),
             library: library,
+            preferences: preferences,
             createPlayer: (_) {
               final player = PlayingFake();
               players.add(player);
@@ -61,6 +123,14 @@ void main() {
       expect(
         players.any((player) => !player.closed && player.value.isPlaying),
         isTrue,
+      );
+      expect(
+        players
+            .where((player) => !player.closed && player.value.isPlaying)
+            .single
+            .value
+            .playbackSpeed,
+        1.5,
       );
       expect(find.byTooltip('暂停').hitTestable(), findsNothing);
       expect(find.byTooltip('更多播放设置').hitTestable(), findsNothing);

@@ -5,6 +5,7 @@ import 'dart:io';
 import '../../../core/config/zovv_gateway.dart';
 import '../domain/drama.dart';
 import '../domain/episode_extras.dart';
+import '../domain/danmaku.dart';
 
 typedef HongguoTransport = Future<Map<String, dynamic>> Function(
   String path,
@@ -15,6 +16,9 @@ typedef HongguoTransport = Future<Map<String, dynamic>> Function(
 class HongguoDramaRepository
     implements
         DramaRepository,
+        ScheduledPlaybackRepository,
+        PreloadCancellationRepository,
+        EpisodeDanmakuSource,
         DetailedDramaRepository,
         SearchableDramaRepository,
         PagedDramaRepository,
@@ -25,6 +29,7 @@ class HongguoDramaRepository
   HongguoDramaRepository({HongguoTransport? transport})
     : _transport = transport ?? _request;
   final HongguoTransport _transport;
+  final _preloadRevisions = <String, int>{};
   final _detailCache = <String, ({Drama drama, DateTime expires})>{};
   final _detailPending = <String, Future<Drama>>{};
   String contentType = 'comic-drama';
@@ -274,16 +279,119 @@ class HongguoDramaRepository
   }
 
   @override
-  Future<PlaybackSource> resolveEpisode(
+  Future<PlaybackSource> resolveEpisode(String dramaId, String episodeId) =>
+      _resolvePlayback(dramaId, episodeId);
+
+  @override
+  Future<PlaybackSource> resolveScheduledEpisode(
     String dramaId,
-    String episodeId,
-  ) async {
+    String episodeId, {
+    required String session,
+    required int sequence,
+    bool preload = false,
+    String quality = 'auto',
+    bool waitComplete = false,
+  }) => _resolvePlayback(
+    dramaId,
+    episodeId,
+    quality: quality,
+    scheduling: {
+      'client': session,
+      'sequence': '$sequence',
+      'priority': preload ? 'preload' : 'foreground',
+      if (preload) 'revision': '${_nextPreloadRevision(session)}',
+      if (waitComplete) 'complete': '1',
+    },
+  );
+
+  int _nextPreloadRevision(String session) {
+    if (_preloadRevisions.length >= 256 &&
+        !_preloadRevisions.containsKey(session)) {
+      _preloadRevisions.remove(_preloadRevisions.keys.first);
+    }
+    return _preloadRevisions.update(
+      session,
+      (value) => value + 1,
+      ifAbsent: () => 1,
+    );
+  }
+
+  @override
+  Future<void> cancelPreload(String session, int sequence) async {
+    if (!const bool.fromEnvironment('ZOVV_STREAM_PLAYBACK')) return;
+    final revision = _nextPreloadRevision(session);
+    try {
+      await _transport('/cancel-preload', {
+        'client': session,
+        'sequence': '$sequence',
+        'revision': '$revision',
+      });
+    } catch (_) {}
+  }
+
+  @override
+  Future<void> releasePlaybackSession(String session) async {
+    _preloadRevisions.remove(session);
+    if (!const bool.fromEnvironment('ZOVV_STREAM_PLAYBACK')) return;
+    try {
+      await _transport('/release-playback', {'client': session});
+    } catch (_) {}
+  }
+
+  @override
+  Future<DanmakuWindow> fetchDanmakuWindow(
+    String dramaId,
+    String episodeId, {
+    required Duration start,
+    required Duration duration,
+  }) async {
+    final result = await _transport('/danmaku', {
+      'sid': _seriesId(dramaId),
+      'vid': episodeId,
+      'startMs': '${start.inMilliseconds}',
+      'durationMs': '${duration.inMilliseconds}',
+    });
+    if (result['available'] != true || result['items'] is! List) {
+      return const DanmakuWindow(available: false, notice: '弹幕暂不可用，不影响播放');
+    }
+    final seen = <String>{};
+    final items =
+        (result['items'] as List)
+            .take(90)
+            .map(DanmakuItem.fromJson)
+            .whereType<DanmakuItem>()
+            .where(
+              (item) =>
+                  item.time >= start &&
+                  item.time < start + const Duration(seconds: 30) &&
+                  item.time < duration &&
+                  seen.add('${item.time.inMilliseconds}:${item.text}'),
+            )
+            .toList()
+          ..sort((a, b) => a.time.compareTo(b.time));
+    return DanmakuWindow(
+      available: true,
+      items: items,
+      notice: items.isEmpty ? '当前时段暂无弹幕' : '',
+    );
+  }
+
+  Future<PlaybackSource> _resolvePlayback(
+    String dramaId,
+    String episodeId, {
+    Map<String, String> scheduling = const {},
+    String quality = 'auto',
+  }) async {
     if (!RegExp(r'^\d{1,30}$').hasMatch(episodeId)) {
       throw const FormatException('Invalid episode');
     }
     final result = await _transport('/playback', {
       'sid': _seriesId(dramaId),
       'vid': episodeId,
+      if (quality != 'auto') 'quality': quality,
+      if (const bool.fromEnvironment('ZOVV_STREAM_PLAYBACK'))
+        'transport': 'hls',
+      if (const bool.fromEnvironment('ZOVV_STREAM_PLAYBACK')) ...scheduling,
     });
     if (result['requiresMediaApproval'] == true) {
       throw PlaybackUnavailable('${result['error']}');
@@ -292,7 +400,8 @@ class HongguoDramaRepository
     final gatewayMedia =
         uri != null &&
         ZovvGateway.sameOrigin(uri) &&
-        RegExp(r'^/media/[a-f0-9]{48}\.mp4$').hasMatch(uri.path) &&
+        (RegExp(r'^/media/[a-f0-9]{48}\.mp4$').hasMatch(uri.path) ||
+            RegExp(r'^/stream/[a-f0-9]{48}/index\.m3u8$').hasMatch(uri.path)) &&
         uri.userInfo.isEmpty &&
         !uri.hasQuery &&
         !uri.hasFragment;
@@ -304,11 +413,35 @@ class HongguoDramaRepository
       if (result['headers'] is Map)
         ...Map<String, String>.from(result['headers'] as Map),
     };
+    if (ZovvGateway.sameOrigin(uri) &&
+        result['cacheKey'] is String &&
+        RegExp(r'^[a-f0-9]{64}$').hasMatch(result['cacheKey'] as String)) {
+      headers['X-Zovv-Cache-Key'] =
+          '${_seriesId(dramaId)}:$episodeId:$quality:${result['cacheKey']}';
+    }
     return PlaybackSource(
       uri: uri,
       headers: headers,
       attribution: '${result['attribution'] ?? '片源：红果'}',
       expiresAt: DateTime.tryParse('${result['expiresAt'] ?? ''}'),
+      complete: result['complete'] != false,
+      selection: quality,
+      quality: ['720p', '1080p'].contains(result['quality'])
+          ? result['quality'] as String
+          : 'auto',
+      availableQualities: result['availableQualities'] is List
+          ? (result['availableQualities'] as List)
+                .whereType<String>()
+                .where((q) => ['720p', '1080p'].contains(q))
+                .toSet()
+                .toList()
+          : const [],
+      duration:
+          result['durationMs'] is int &&
+              (result['durationMs'] as int) > 0 &&
+              (result['durationMs'] as int) <= 86400000
+          ? Duration(milliseconds: result['durationMs'] as int)
+          : null,
     );
   }
 

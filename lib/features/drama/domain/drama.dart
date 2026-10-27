@@ -104,16 +104,48 @@ class PlaybackSource {
     required this.attribution,
     this.headers = const {},
     this.expiresAt,
+    this.duration,
+    this.availableQualities = const [],
+    this.quality = 'auto',
+    this.complete = true,
+    this.selection = 'auto',
   });
   final Uri uri;
   final String attribution;
   final Map<String, String> headers;
   final DateTime? expiresAt;
+
+  /// Full VOD timeline when an in-progress playlist exposes only its first window.
+  final Duration? duration;
+  final List<String> availableQualities;
+  final String quality;
+  final bool complete;
+  final String selection;
 }
 
 abstract interface class DramaRepository {
   Future<List<Drama>> discover();
   Future<PlaybackSource> resolveEpisode(String dramaId, String episodeId);
+}
+
+/// Optional scheduling context; stale work can be retired without affecting
+/// another viewer or another player session sharing the same episode.
+abstract interface class ScheduledPlaybackRepository {
+  Future<PlaybackSource> resolveScheduledEpisode(
+    String dramaId,
+    String episodeId, {
+    required String session,
+    required int sequence,
+    bool preload = false,
+    String quality = 'auto',
+    bool waitComplete = false,
+  });
+  Future<void> releasePlaybackSession(String session);
+}
+
+/// Optional capability: withdraw speculative work without releasing playback.
+abstract interface class PreloadCancellationRepository {
+  Future<void> cancelPreload(String session, int sequence);
 }
 
 /// One page of a feed, used by sources that paginate the catalogue.

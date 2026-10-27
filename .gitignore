@@ -8,8 +8,13 @@ android/local.properties
 coverage/
 artifacts/
 tools/**/node_modules/
+tools/hongguo-gateway/data/device-identity.json
+tools/hongguo-gateway/data/device-identity.json.*.tmp
 *.ipa
 *.p12
+*.p8
+*.cer
+*.certSigningRequest
 *.mobileprovision
 .env
 .env.*

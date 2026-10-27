@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 /// Hand-drawn playback scrubber: a hairline track, a white fill and a small
 /// knob with a soft accent halo. Replaces the Material [Slider] so playback
 /// controls share the app's flat language.
-class PlaybackScrubber extends StatelessWidget {
+class PlaybackScrubber extends StatefulWidget {
   const PlaybackScrubber({
     super.key,
     required this.position,
@@ -11,6 +11,8 @@ class PlaybackScrubber extends StatelessWidget {
     this.onSeekStart,
     this.onSeek,
     this.onSeekEnd,
+    this.onInteractionStart,
+    this.onInteractionCancel,
     this.trackColor = const Color(0x33FFFFFF),
     this.fillColor = Colors.white,
     this.accent = const Color(0xFF7C93E4),
@@ -20,46 +22,67 @@ class PlaybackScrubber extends StatelessWidget {
   final VoidCallback? onSeekStart;
   final ValueChanged<Duration>? onSeek;
   final VoidCallback? onSeekEnd;
+  final VoidCallback? onInteractionStart;
+  final VoidCallback? onInteractionCancel;
   final Color trackColor;
   final Color fillColor;
   final Color accent;
 
   @override
+  State<PlaybackScrubber> createState() => _PlaybackScrubberState();
+}
+
+class _PlaybackScrubberState extends State<PlaybackScrubber> {
+  bool _dragging = false;
+  @override
   Widget build(BuildContext context) {
-    final total = duration.inMilliseconds > 0 ? duration.inMilliseconds : 1;
-    final progress = (position.inMilliseconds / total).clamp(0.0, 1.0);
+    final total = widget.duration.inMilliseconds > 0
+        ? widget.duration.inMilliseconds
+        : 1;
+    final progress = (widget.position.inMilliseconds / total).clamp(0.0, 1.0);
     return LayoutBuilder(
       builder: (context, constraints) {
         void seekTo(Offset local) {
           final ratio = (local.dx / constraints.maxWidth).clamp(0.0, 1.0);
-          onSeek?.call(Duration(milliseconds: (ratio * total).round()));
+          widget.onSeek?.call(Duration(milliseconds: (ratio * total).round()));
         }
 
         return Semantics(
           slider: true,
-          value: '${position.inSeconds}',
+          value: '${widget.position.inSeconds}',
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
-            onTapDown: (details) {
-              onSeekStart?.call();
+            onTapDown: (_) => widget.onInteractionStart?.call(),
+            onTapCancel: () => widget.onInteractionCancel?.call(),
+            onTapUp: (details) {
+              widget.onSeekStart?.call();
               seekTo(details.localPosition);
-              onSeekEnd?.call();
+              widget.onSeekEnd?.call();
             },
             onHorizontalDragStart: (details) {
-              onSeekStart?.call();
+              _dragging = true;
+              widget.onSeekStart?.call();
               seekTo(details.localPosition);
             },
             onHorizontalDragUpdate: (details) => seekTo(details.localPosition),
-            onHorizontalDragEnd: (_) => onSeekEnd?.call(),
-            onHorizontalDragCancel: () => onSeekEnd?.call(),
+            onHorizontalDragEnd: (_) {
+              if (!_dragging) return;
+              _dragging = false;
+              widget.onSeekEnd?.call();
+            },
+            onHorizontalDragCancel: () {
+              if (!_dragging) return;
+              _dragging = false;
+              widget.onSeekEnd?.call();
+            },
             child: SizedBox(
               height: 22,
               child: CustomPaint(
                 painter: _ScrubberPainter(
                   progress: progress,
-                  trackColor: trackColor,
-                  fillColor: fillColor,
-                  accent: accent,
+                  trackColor: widget.trackColor,
+                  fillColor: widget.fillColor,
+                  accent: widget.accent,
                 ),
                 child: const SizedBox.expand(),
               ),

@@ -29,6 +29,11 @@ class FakePlayer extends VideoPlayerController {
   }
 
   @override
+  Future<void> setPlaybackSpeed(double speed) async {
+    if (!closed) value = value.copyWith(playbackSpeed: speed);
+  }
+
+  @override
   Future<void> seekTo(Duration position) async {
     if (!closed) value = value.copyWith(position: position);
   }

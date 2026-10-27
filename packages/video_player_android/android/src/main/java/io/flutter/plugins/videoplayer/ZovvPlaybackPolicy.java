@@ -1,0 +1,22 @@
+package io.flutter.plugins.videoplayer;
+
+import androidx.annotation.OptIn;
+import androidx.media3.common.util.UnstableApi;
+import androidx.media3.exoplayer.DefaultLoadControl;
+
+@OptIn(markerClass = UnstableApi.class)
+public final class ZovvPlaybackPolicy {
+  private ZovvPlaybackPolicy() {}
+  public static DefaultLoadControl create(VideoPlayerOptions options) {
+    if (options.backBufferDurationMs != null && options.backBufferDurationMs < 0) {
+      throw new IllegalArgumentException("backBufferDurationMs must be at least 0");
+    }
+    int back = options.backBufferDurationMs == null ? 0
+        : (int) Math.min(options.backBufferDurationMs, Integer.MAX_VALUE);
+    return new DefaultLoadControl.Builder()
+        .setBufferDurationsMs(8000, 20000, 750, 1500)
+        .setTargetBufferBytes(16 * 1024 * 1024)
+        .setPrioritizeTimeOverSizeThresholds(false)
+        .setBackBuffer(back, true).build();
+  }
+}
