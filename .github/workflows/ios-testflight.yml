@@ -27,8 +27,18 @@ jobs:
         run: |
           flutter config --enable-swift-package-manager
           flutter pub get
-          flutter analyze --no-pub lib test
+          flutter analyze --no-pub lib test integration_test
           flutter test --no-pub
+      - name: Verify iOS native HLS cache on simulator
+        timeout-minutes: 15
+        shell: bash
+        run: |
+          set -euo pipefail
+          DEVICE_ID="$(xcrun simctl create ZOVV-Cache-Smoke com.apple.CoreSimulator.SimDeviceType.iPhone-17)"
+          trap 'xcrun simctl shutdown "$DEVICE_ID" || true; xcrun simctl delete "$DEVICE_ID" || true' EXIT
+          xcrun simctl boot "$DEVICE_ID"
+          xcrun simctl bootstatus "$DEVICE_ID" -b
+          flutter test integration_test/ios_cache_smoke_test.dart -d "$DEVICE_ID" --no-pub
       - name: Prepare private signing assets
         env:
           IOS_DISTRIBUTION_P12_BASE64: ${{ secrets.IOS_DISTRIBUTION_P12_BASE64 }}

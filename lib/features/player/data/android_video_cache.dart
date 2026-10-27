@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
+import 'ios_video_cache.dart';
+
 class VideoCacheSnapshot {
   const VideoCacheSnapshot({
     required this.bytes,
@@ -12,11 +14,27 @@ class VideoCacheSnapshot {
   final bool busy, cleared;
 }
 
-/// Android adaptation only. Other platforms keep their existing player path.
+/// Shared settings bridge; Android uses native ExoPlayer and iOS HLS uses disk.
 abstract final class AndroidVideoCache {
   static const _channel = MethodChannel('zovv/video-cache');
   static Future<VideoCacheSnapshot?> read({bool clear = false}) async {
-    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return null;
+    if (kIsWeb) return null;
+    if (defaultTargetPlatform == TargetPlatform.iOS) {
+      final service = IosVideoCache.instance;
+      if (service == null) return null;
+      try {
+        final raw = await service.stats(clear: clear);
+        return VideoCacheSnapshot(
+          bytes: raw['bytes'] as int,
+          limit: raw['limit'] as int,
+          busy: raw['busy'] as bool,
+          cleared: raw['cleared'] as bool,
+        );
+      } catch (_) {
+        return null;
+      }
+    }
+    if (defaultTargetPlatform != TargetPlatform.android) return null;
     try {
       var raw = await _channel.invokeMapMethod<String, dynamic>(
         clear ? 'clear' : 'stats',

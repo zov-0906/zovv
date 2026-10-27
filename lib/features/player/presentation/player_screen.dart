@@ -19,6 +19,7 @@ import '../../drama/domain/watch_progress.dart';
 import '../application/next_episode_buffer.dart';
 import '../application/playback_preferences.dart';
 import '../application/preload_budget.dart';
+import '../data/ios_video_cache.dart';
 import 'widgets/episode_picker.dart';
 import 'widgets/danmaku_overlay.dart';
 import '../../drama/presentation/widgets/drama_comment_sheet.dart';
@@ -296,6 +297,7 @@ class _PlayerScreenState extends State<PlayerScreen>
 
   VideoPlayerController _createPlayer(PlaybackSource source) =>
       widget.createPlayer?.call(source) ??
+      IosVideoCache.instance?.create(source) ??
       VideoPlayerController.networkUrl(source.uri, httpHeaders: source.headers);
 
   bool _current(int generation) => mounted && generation == _generation;
