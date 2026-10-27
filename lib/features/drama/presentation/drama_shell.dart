@@ -319,14 +319,16 @@ class _DramaShellState extends State<DramaShell> {
                             ),
                           ),
                           const SizedBox(width: 8),
-                          Text(
-                            'STORIES',
-                            style: TextStyle(
-                              fontSize: 8,
-                              letterSpacing: 1.5,
-                              color: palette.muted,
+                          if (MediaQuery.sizeOf(context).width >= 360 ||
+                              MediaQuery.textScalerOf(context).scale(18) < 25)
+                            Text(
+                              'STORIES',
+                              style: TextStyle(
+                                fontSize: 8,
+                                letterSpacing: 1.5,
+                                color: palette.muted,
+                              ),
                             ),
-                          ),
                           const Spacer(),
                           GlassSurface(
                             radius: 11,

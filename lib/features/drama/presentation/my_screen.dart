@@ -2,10 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/glass_chip.dart';
 import '../../../core/widgets/glass_surface.dart';
-import '../../../core/widgets/liquid_segmented_control.dart';
 import '../../player/application/playback_preferences.dart';
+import '../../player/data/android_video_cache.dart';
 import '../../player/presentation/widgets/video_cache_tile.dart';
 import '../application/drama_library_controller.dart';
 import '../domain/drama.dart';
@@ -34,6 +33,7 @@ class MyScreen extends StatefulWidget {
 class _MyScreenState extends State<MyScreen> {
   final _preferences = PlaybackPreferences();
   String _version = 'ZOVV';
+  VideoCacheSnapshot? _cache;
   @override
   void initState() {
     super.initState();
@@ -55,6 +55,7 @@ class _MyScreenState extends State<MyScreen> {
 
   Future<void> _load() async {
     await _preferences.load();
+    _cache = await AndroidVideoCache.read();
     if (mounted) setState(() {});
   }
 
@@ -80,59 +81,223 @@ class _MyScreenState extends State<MyScreen> {
     if (mounted) setState(() {});
   }
 
-  Widget _section(String title, List<Widget> children) => Padding(
-    padding: const EdgeInsets.only(bottom: 22),
+  Widget _group(String title, List<Widget> rows) => Padding(
+    padding: const EdgeInsets.only(bottom: 24),
     child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(
-          title,
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: context.palette.ink,
+        Padding(
+          padding: const EdgeInsets.only(bottom: 6, left: 2),
+          child: Text(
+            title,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+              color: context.palette.muted,
+              letterSpacing: .6,
+            ),
           ),
         ),
-        const SizedBox(height: 10),
-        GlassSurface(
-          radius: 20,
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: children,
-          ),
-        ),
+        for (var index = 0; index < rows.length; index++) ...[
+          rows[index],
+          if (index < rows.length - 1)
+            Padding(
+              padding: const EdgeInsets.only(left: 34),
+              child: Divider(
+                height: 1,
+                thickness: .5,
+                color: context.palette.line,
+              ),
+            ),
+        ],
       ],
     ),
   );
+  Widget _row(
+    IconData icon,
+    String title, {
+    String? value,
+    VoidCallback? onTap,
+  }) => InkWell(
+    borderRadius: BorderRadius.circular(10),
+    onTap: onTap,
+    child: ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: 54),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 13, horizontal: 2),
+        child: Row(
+          children: [
+            Icon(icon, size: 19, color: context.palette.ink),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Text(
+                title,
+                style: TextStyle(fontSize: 14, color: context.palette.ink),
+              ),
+            ),
+            if (value != null) ...[
+              const SizedBox(width: 12),
+              Flexible(
+                child: Text(
+                  value,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.right,
+                  style: TextStyle(fontSize: 12, color: context.palette.muted),
+                ),
+              ),
+            ],
+            if (onTap != null) ...[
+              const SizedBox(width: 6),
+              Icon(
+                Icons.chevron_right_rounded,
+                size: 17,
+                color: context.palette.muted,
+              ),
+            ],
+          ],
+        ),
+      ),
+    ),
+  );
+  Future<void> _choose<T>(
+    String title,
+    Map<T, String> values,
+    T selected,
+    Future<void> Function(T) save,
+  ) async {
+    final value = await showModalBottomSheet<T>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => GlassSurface(
+        radius: 24,
+        child: Material(
+          type: MaterialType.transparency,
+          child: SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(24, 20, 24, 20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: context.palette.ink,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  for (final item in values.entries)
+                    InkWell(
+                      onTap: () => Navigator.pop(sheetContext, item.key),
+                      borderRadius: BorderRadius.circular(10),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 15),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                item.value,
+                                style: const TextStyle(fontSize: 14),
+                              ),
+                            ),
+                            if (item.key == selected)
+                              Icon(
+                                Icons.check_rounded,
+                                size: 19,
+                                color: context.palette.accent,
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    if (value != null) await save(value);
+  }
+
+  Future<void> _storage() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => GlassSurface(
+        radius: 24,
+        child: Material(
+          type: MaterialType.transparency,
+          child: SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    '视频缓存',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: context.palette.ink,
+                    ),
+                  ),
+                  const VideoCacheTile(),
+                  Text(
+                    _cache == null
+                        ? '缓存服务暂不可用，正常播放不受影响。'
+                        : '退出播放后可以清理。收藏与观看记录会保留。',
+                    style: TextStyle(
+                      fontSize: 12,
+                      height: 1.6,
+                      color: context.palette.muted,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    _cache = await AndroidVideoCache.read();
+    if (mounted) setState(() {});
+  }
+
   @override
   Widget build(BuildContext context) => Material(
     type: MaterialType.transparency,
     child: ListView(
       key: const PageStorageKey('my'),
-      padding: const EdgeInsets.fromLTRB(22, 12, 22, 130),
+      padding: const EdgeInsets.fromLTRB(24, 12, 24, 130),
       children: [
         Text(
           '我的',
           style: TextStyle(
-            fontSize: 28,
+            fontSize: 26,
             fontWeight: FontWeight.w600,
             color: context.palette.ink,
           ),
         ),
         const SizedBox(height: 7),
         Text(
-          '故事与偏好，留在这台设备。',
+          '观看、偏好与这台设备。',
           style: TextStyle(fontSize: 12, color: context.palette.muted),
         ),
-        const SizedBox(height: 24),
-        _section('观看记录', [
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.history_rounded),
-            title: const Text('全部观看记录'),
-            subtitle: Text('${widget.library.resumeEntries.length} 部故事'),
-            trailing: const Icon(Icons.chevron_right_rounded),
+        const SizedBox(height: 30),
+        _group('我的故事', [
+          _row(
+            Icons.history_rounded,
+            '观看记录',
+            value: '${widget.library.resumeEntries.length} 部',
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute<void>(
                 builder: (_) => _HistoryPage(
@@ -143,85 +308,81 @@ class _MyScreenState extends State<MyScreen> {
             ),
           ),
         ]),
-        _section('播放偏好', [
-          SwitchListTile.adaptive(
-            contentPadding: EdgeInsets.zero,
-            title: const Text('自动连播'),
-            value: _preferences.autoNext,
-            onChanged: (v) => _save(autoNext: v),
+        _group('播放偏好', [
+          _row(
+            Icons.playlist_play_rounded,
+            '自动连播',
+            value: _preferences.autoNext ? '已开启' : '已关闭',
+            onTap: () => _save(autoNext: !_preferences.autoNext),
           ),
-          const Text('默认倍速', style: TextStyle(fontSize: 12)),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final speed in PlaybackPreferences.speeds)
-                GlassChip(
-                  label: '$speed×',
-                  selected: _preferences.speed == speed,
-                  onTap: () => _save(speed: speed),
-                ),
-            ],
+          _row(
+            Icons.speed_rounded,
+            '默认倍速',
+            value: '${_preferences.speed}×',
+            onTap: () => _choose<double>(
+              '默认倍速',
+              {
+                for (final speed in PlaybackPreferences.speeds)
+                  speed: '$speed×',
+              },
+              _preferences.speed,
+              (v) => _save(speed: v),
+            ),
           ),
-          const SizedBox(height: 16),
-          const Text('默认清晰度', style: TextStyle(fontSize: 12)),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final item in {
-                'auto': '自动',
-                '720p': '720P',
-                '1080p': '1080P',
-              }.entries)
-                GlassChip(
-                  label: item.value,
-                  selected: _preferences.quality == item.key,
-                  onTap: () => _save(quality: item.key),
-                ),
-            ],
+          _row(
+            Icons.high_quality_outlined,
+            '默认清晰度',
+            value: _preferences.quality == 'auto'
+                ? '自动'
+                : _preferences.quality.toUpperCase(),
+            onTap: () => _choose<String>(
+              '默认清晰度',
+              {'auto': '自动', '720p': '720P', '1080p': '1080P'},
+              _preferences.quality,
+              (v) => _save(quality: v),
+            ),
           ),
-          SwitchListTile.adaptive(
-            contentPadding: EdgeInsets.zero,
-            title: const Text('显示弹幕'),
-            value: _preferences.danmaku,
-            onChanged: (v) => _save(danmaku: v),
+          _row(
+            Icons.chat_bubble_outline_rounded,
+            '显示弹幕',
+            value: _preferences.danmaku ? '已开启' : '已关闭',
+            onTap: () => _save(danmaku: !_preferences.danmaku),
           ),
         ]),
-        _section('外观', [
-          LiquidSegmentedControl<ThemeMode>(
-            semanticLabel: '外观模式',
-            value: widget.themeMode,
-            height: 42,
-            segments: const [
-              LiquidSegment(value: ThemeMode.system, label: '跟随系统'),
-              LiquidSegment(value: ThemeMode.light, label: '浅色'),
-              LiquidSegment(value: ThemeMode.dark, label: '夜间'),
-            ],
-            onChanged: (mode) => widget.onThemeMode?.call(mode),
+        _group('设备与外观', [
+          _row(
+            Icons.palette_outlined,
+            '外观',
+            value: {
+              ThemeMode.system: '跟随系统',
+              ThemeMode.light: '浅色',
+              ThemeMode.dark: '夜间',
+            }[widget.themeMode],
+            onTap: () => _choose<ThemeMode>(
+              '外观',
+              {
+                ThemeMode.system: '跟随系统',
+                ThemeMode.light: '浅色',
+                ThemeMode.dark: '夜间',
+              },
+              widget.themeMode,
+              (v) async {
+                widget.onThemeMode?.call(v);
+              },
+            ),
+          ),
+          _row(
+            Icons.cleaning_services_outlined,
+            '视频缓存',
+            value: _cache == null
+                ? '查看与清理'
+                : '${(_cache!.bytes / 1048576).toStringAsFixed(1)} MB',
+            onTap: _storage,
           ),
         ]),
-        _section('存储管理', [
-          VideoCacheTile(key: ValueKey(widget.active)),
-          Text(
-            '清理视频缓存不会删除收藏与观看记录。',
-            style: TextStyle(fontSize: 11, color: context.palette.muted),
-          ),
-        ]),
-        _section('关于 ZOVV', [
-          Text(
-            _version,
-            style: TextStyle(fontSize: 12, color: context.palette.muted),
-          ),
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            title: const Text('重播开屏演示'),
-            leading: const Icon(Icons.auto_awesome_outlined),
-            trailing: const Icon(Icons.chevron_right_rounded),
-            onTap: widget.onReplay,
-          ),
+        _group('关于 ZOVV', [
+          _row(Icons.auto_awesome_outlined, '重播开屏演示', onTap: widget.onReplay),
+          _row(Icons.info_outline_rounded, '版本', value: _version),
         ]),
       ],
     ),

@@ -5,12 +5,65 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:zovv/core/widgets/zovv_refresh.dart';
 import 'package:zovv/features/drama/data/demo_drama_repository.dart';
 import 'package:zovv/features/drama/presentation/drama_shell.dart';
+import 'package:zovv/features/drama/application/drama_library_controller.dart';
+import 'package:zovv/features/drama/domain/watch_progress.dart';
 import 'package:zovv/features/startup/domain/startup_config.dart';
 import 'package:zovv/features/startup/presentation/startup_screen.dart';
 
 import '../startup/memory_library_storage.dart';
 
 void main() {
+  test('clearing history preserves favorites after reload', () async {
+    final storage = MemoryLibraryStorage();
+    final library = DramaLibraryController(storage);
+    await library.load();
+    final drama = DemoDramaRepository.catalog.first;
+    library.remember(drama);
+    library.toggleFavorite(drama.id);
+    library.record(
+      WatchProgress(
+        dramaId: drama.id,
+        episodeIndex: 1,
+        positionSeconds: 23,
+        updatedAt: DateTime.now(),
+      ),
+    );
+    library.clearHistory();
+    await library.persist();
+    final restored = DramaLibraryController(storage);
+    await restored.load();
+    expect(restored.recent, isEmpty);
+    expect(restored.favorites, contains(drama.id));
+    library.dispose();
+    restored.dispose();
+  });
+  testWidgets('small screen My supports larger text without overflow', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 568);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(
+      MaterialApp(
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(context)
+              .copyWith(textScaler: TextScaler.linear(1.6)),
+          child: child!,
+        ),
+        home: DramaShell(
+          repository: DemoDramaRepository(),
+          storage: MemoryLibraryStorage(),
+          onReplayStartup: () {},
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('nav-3')));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
   testWidgets(
     'discover scroll changes navigation to top and My keeps page state',
     (tester) async {
