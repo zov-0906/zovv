@@ -10,7 +10,7 @@
 
 安卓公网包 `artifacts/ZOVV-android-domestic-ip-debug.apk` 已覆盖安装模拟器；第 30 集取址 1166ms，首次进度 3349ms，恢复旧进度时一次缓冲 3300ms；后续第 31/32/33 集暖播放器首进度约 226/207/157ms。所观察日志中无十几秒重复缓冲；不将短时间日志当作用户感受或 iOS 真机验收。
 
-静态分析和 62 项 Flutter 回归通过。提交 c4fb830 已将 Android、TestFlight 构建入口统一为国内 IP HTTPS，启用 HLS 及共享预加载缓冲预算。新版 TestFlight 工作流 40477748181 构建中，尚不能称已上传或可安装。iOS 持久磁盘缓存仍未实现，Android 原生缓存/缓冲参数不代表 iOS 相同。
+静态分析和 62 项 Flutter 回归通过。提交 c4fb830 已将 Android、TestFlight 构建入口统一为国内 IP HTTPS，启用 HLS 及共享预加载缓冲预算。新版 TestFlight 工作流 40477748181 已成功上传构建 1003.1，苹果处理状态 VALID；仍需在后台完成适用的合规问答并分配内部测试组，iPhone 实机播放尚待用户验证。iOS 持久磁盘缓存仍未实现，Android 原生缓存/缓冲参数不代表 iOS 相同。
 
 以下为 IP 方案完成之前的排查记录，原域名公网握手问题并未被修复。
 
