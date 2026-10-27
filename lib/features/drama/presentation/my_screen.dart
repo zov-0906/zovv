@@ -137,7 +137,8 @@ class _MyScreenState extends State<MyScreen> {
             ),
             if (value != null) ...[
               const SizedBox(width: 12),
-              Flexible(
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 120),
                 child: Text(
                   value,
                   maxLines: 2,

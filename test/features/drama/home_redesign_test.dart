@@ -90,6 +90,17 @@ void main() {
       await tester.tap(find.byKey(const Key('nav-3')));
       await tester.pumpAndSettle();
       expect(find.text('播放偏好'), findsOneWidget);
+      final speedRow = find
+          .ancestor(of: find.text('默认倍速'), matching: find.byType(InkWell))
+          .first;
+      final arrow = find.descendant(
+        of: speedRow,
+        matching: find.byIcon(Icons.chevron_right_rounded),
+      );
+      expect(
+        tester.getRect(speedRow).right - tester.getRect(arrow).right,
+        closeTo(2, 1),
+      );
       await tester.tap(find.byKey(const Key('nav-0')));
       await tester.pumpAndSettle();
       expect(find.text('回顶部'), findsOneWidget);
